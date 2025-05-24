@@ -132,6 +132,7 @@ function handleSourceKeyDown(event) {
 function handlePageKeyDown(event) {
   if (event.key in BUTTON_MAP) {
     buttonMask |= BUTTON_MAP[event.key];
+    event.preventDefault();
   }
 
   if (event.key == 'Escape') {
