@@ -39,7 +39,7 @@ export const PALETTE = [
   [255, 255, 255, 255], // white
 ];
 
-const INVERSE_PALETTE = new Map();
+export const INVERSE_PALETTE = new Map();
 for (let i = 0; i < PALETTE.length; i++) {
   INVERSE_PALETTE.set(PALETTE[i].toString(), i);
 }
@@ -49,87 +49,46 @@ let spriteContext = null;
 
 // spriteBitmap must be kept in sync with spriteData (since bitmaps
 // are immutable, we keep spriteData around to modify it).
-const spriteData = new ImageData(SPRITE_SHEET_WIDTH,
-    SPRITE_SHEET_HEIGHT);
+export let spriteData = null;
 export let spriteBitmap = null;
 
 /**
- * Populate the spriteBitmap and spriteData from a string containing the
- * sprite data (as stored in the file). Each pixel is stored as a single
- * hex digit. These are references into the PALETTE table.
- * @param {string} text Hex encoded version of sprite data
- * @see encodeSprites
+ * Called when loading a new game.
+ * @param {Uint8ClampedArray} rawPixels An array of pixel values
  */
-export function decodeSprites(text) {
-  clearSprites();
-
-  let outIndex = 0;
-  for (let i = 0; i < text.length; i++) {
-    if (!/[\s)]/.test(text[i])) {
-      const rgba = PALETTE[parseInt(text[i], 16)];
-      for (let i = 0; i < 4; i++) {
-        spriteData.data[outIndex++] = rgba[i];
-      }
+export function setSpriteData(rawPixels) {
+  // Copy into our ImageData object first.
+  for (let i = 0; i < spriteData.data.length; i += 4) {
+    const rgba = rawPixels.slice(i, i + 4);
+    if (!INVERSE_PALETTE.has(rgba.toString())) {
+      const newRgba = findNearestPaletteEntry(rgba);
+      spriteData.data[i] = newRgba[0];
+      spriteData.data[i + 1] = newRgba[1];
+      spriteData.data[i + 2] = newRgba[2];
+      spriteData.data[i + 3] = newRgba[3];
+    } else {
+      spriteData.data[i] = rgba[0];
+      spriteData.data[i + 1] = rgba[1];
+      spriteData.data[i + 2] = rgba[2];
+      spriteData.data[i + 3] = rgba[3];
     }
   }
 
   createImageBitmap(spriteData).then((bm) => {
     spriteBitmap = bm;
-    repaintSpriteEdit(); // Sprite editor
+    repaintSpriteEdit();
   });
-}
-
-/**
- * Convert current sprite sheet to a string suitable for storing in a text
- * file. The format is described in decodeSprites.
- * @return {string} Hex representation of image data
- * @see decodeSprites
- */
-export function encodeSprites() {
-  // Ignore any zeroes at the end to save space. Walk backward
-  // to determine how many there are.
-  const dataEnd = countTrailingZeros(spriteData.data);
-
-  let result = '';
-  for (let i = 0; i <= dataEnd; i += 4) {
-    const index = INVERSE_PALETTE.get(spriteData.data.slice(i, i + 4).
-        toString());
-    if (index === undefined) {
-      // This shouldn't happen normally.
-      console.log('invalid color in sprite data');
-      result += '0';
-    } else {
-      result += index.toString(16);
-    }
-
-    if (((i / 4) % SPRITE_SHEET_WIDTH) ==
-      SPRITE_SHEET_WIDTH - 1) {
-      result += '\n';
-    }
-  }
-
-  return result;
-}
-
-/**
- * Find index of last non-zero value in array.
- * @param {number} arr
- * @return {number}
- */
-function countTrailingZeros(arr) {
-  for (let i = arr.length - 1; i >= 0; i--) {
-    if (arr[i] != 0) {
-      return i;
-    }
-  }
-
-  return 0;
 }
 
 /**
  * Set the sprite sheet to be fully transparent.
  */
 export function clearSprites() {
+  if (spriteData == null) {
+    spriteData = new ImageData(SPRITE_SHEET_WIDTH,
+        SPRITE_SHEET_HEIGHT);
+  }
+
   for (let i = 0; i < SPRITE_SHEET_WIDTH *
     SPRITE_SHEET_HEIGHT * 4; i++) {
     spriteData.data[i] = 0;

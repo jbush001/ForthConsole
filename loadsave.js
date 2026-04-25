@@ -15,6 +15,10 @@
 import * as sprite from './sprites.js';
 import * as audio from './audio.js';
 
+// These delineate where sprite and sound data occur in the save file.
+const SPRITE_DELIMITER = '\n--SPRITE DATA------\n';
+const SOUND_DELIMITER = '\n--SOUND DATA--------\n';
+
 export let saveFileName = null;
 export let needsSave = false;
 
@@ -50,16 +54,11 @@ export function updateTitleBar() {
     (needsSave ? '*' : '');
 }
 
-// These delineate where sprite and sound data occur in the save file.
-const SPRITE_DELIMITER = '\n--SPRITE DATA------\n';
-const SOUND_DELIMITER = '\n--SOUND DATA--------\n';
-
 /**
  * Copy source code and sprites to the server (serve.js), which it saves
  * on its local filesystem.
  * @note this does not check needsSave and will always save, just to be safe.
  */
-// eslint-disable-next-line no-unused-vars
 export function saveToServer() {
   console.log('Saving to server...');
   if (!saveFileName) {
@@ -75,7 +74,8 @@ export function saveToServer() {
     setSaveFileName(saveFileName + '.fth');
   }
 
-  const content = encodeSaveData();
+  const content = encodeSaveData(getSourceCode(), sprite.spriteData.data,
+      audio.soundEffects);
 
   fetch(`/save/${saveFileName}`, {
     method: 'POST',
@@ -91,16 +91,117 @@ export function saveToServer() {
 
     updateFileList();
     clearNeedsSave();
-    updateTitleBar();
   }).catch((error) => {
     alert('Error saving text to server:' + error);
   });
 }
 
-function encodeSaveData() {
-  return getSourceCode() +
-    '\n(' + SPRITE_DELIMITER + sprite.encodeSprites() +
-    SOUND_DELIMITER + audio.encodeSoundEffects() + '\n)\n';
+/**
+ * Convert all game data into a file that can be saved
+ * @param {str} code Text of the source code
+ * @param {Uint8ClampedArray} imageData
+ * @param {[]} soundEffects
+ * @return {str}
+ */
+export function encodeSaveData(code, imageData, soundEffects) {
+  return code +
+    '\n(' + SPRITE_DELIMITER + encodeSprites(imageData) +
+    SOUND_DELIMITER + encodeSoundEffects(soundEffects) + '\n)\n';
+}
+
+/**
+ * Convert current sprite sheet to a string suitable for storing in a text
+ * file. The format is described in decodeSprites.
+ * @param {Uint8ClampedArray} imageData
+ * @return {string} Hex representation of image data
+ * @see decodeSprites
+ */
+export function encodeSprites(imageData) {
+  // Ignore any zeroes at the end to save space. Walk backward
+  // to determine how many there are.
+  const dataEnd = countTrailingZeros(imageData);
+
+  let result = '';
+  for (let i = 0; i <= dataEnd; i += 4) {
+    const index = sprite.INVERSE_PALETTE.get(imageData.slice(i, i + 4).
+        toString());
+    if (index === undefined) {
+      // This shouldn't happen normally.
+      console.log('invalid color in sprite data');
+      result += '0';
+    } else {
+      result += index.toString(16);
+    }
+
+    if (((i / 4) % sprite.SPRITE_SHEET_WIDTH) ==
+      sprite.SPRITE_SHEET_WIDTH - 1) {
+      result += '\n';
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Find index of last non-zero value in array.
+ * @param {number} arr
+ * @return {number}
+ */
+function countTrailingZeros(arr) {
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (arr[i] != 0) {
+      return i;
+    }
+  }
+
+  return 0;
+}
+
+function encodeSoundEffects(fx) {
+  // Ignore effects that are empty
+  let totalEffects = 0;
+  for (let i = fx.length - 1; i >= 0; i--) {
+    if (!fx[i].amplitudes.every((value) => value === 0) ||
+      !fx[i].pitches.every((value) => value === 0)) {
+      totalEffects = i + 1;
+      break;
+    }
+  }
+
+  // Encode effects that are non-zero
+  let result = '';
+  for (let i = 0; i < totalEffects; i++) {
+    result += encodeSoundEffect(fx[i]) + '\n';
+  }
+
+  return result;
+}
+
+function encodeSoundEffect(effect) {
+  let encoded = '';
+  function encodeByte(val) {
+    encoded += val.toString(16).padStart(2, '0');
+  }
+
+  encodeByte(effect.noteDuration);
+  encodeByte(effect.waveform);
+  for (let i = 0; i < audio.NOTES_PER_EFFECT; i++) {
+    if (i < effect.pitches.length) {
+      encodeByte(effect.pitches[i]);
+    } else {
+      encodeByte(0);
+    }
+  }
+
+  for (let i = 0; i < audio.NOTES_PER_EFFECT; i++) {
+    if (i < effect.amplitudes.length) {
+      encodeByte(effect.amplitudes[i]);
+    } else {
+      encodeByte(0);
+    }
+  }
+
+  return encoded;
 }
 
 /**
@@ -117,8 +218,13 @@ export async function loadFromServer(filename) {
 
     return response.text();
   }).then((data) => {
-    decodeSaveData(data);
-
+    sprite.clearSprites();
+    audio.clearSoundEffects();
+    const [code, spritePixels, soundEffects] = decodeSaveData(data);
+    setSourceCode(code);
+    sprite.setSpriteData(spritePixels);
+    audio.setAudioData(soundEffects);
+    clearNeedsSave();
     updateTitleBar();
   }).catch((error) => {
     alert('Error loading file: ' + error);
@@ -129,8 +235,9 @@ export async function loadFromServer(filename) {
  * Parse string contents of a file containing sprite, source, and sound
  * data and populate global data structures used by the engine.
  * @param {string} data
+ * @return {[code, spritPixels, soundEffects]}
  */
-function decodeSaveData(data) {
+export function decodeSaveData(data) {
   // Split this into sections.
   const split1 = data.indexOf(SPRITE_DELIMITER);
   const split2 = data.indexOf(SOUND_DELIMITER);
@@ -139,14 +246,82 @@ function decodeSaveData(data) {
   }
 
   const endOfCode = data.lastIndexOf('(', split1);
-  const code = data.substring(0, endOfCode);
-  setSourceCode(code);
-  const sprites = data.substring(split1 + SPRITE_DELIMITER.length, split2);
-  sprite.decodeSprites(sprites);
-  const sounds = data.substring(split2 + SOUND_DELIMITER.length);
-  audio.decodeSoundEffects(sounds);
+  const code = data.substring(0, endOfCode - 1);
+  const spriteString = data.substring(split1 + SPRITE_DELIMITER.length, split2);
+  const spritePixels = decodeSprites(spriteString);
+  const soundString = data.substring(split2 + SOUND_DELIMITER.length);
+  const soundEffects = decodeSoundEffects(soundString);
 
-  clearNeedsSave();
+  return [code, spritePixels, soundEffects];
+}
+
+function decodeSoundEffects(string) {
+  const result = [];
+
+  // Remove stray characters
+  const compressed = string.replace(/[^a-f0-9]/gi, '');
+  let index = 0;
+  function nextByte() {
+    if (index >= compressed.length) {
+      return null;
+    }
+
+    const val = parseInt(compressed.substring(index, index + 2), 16);
+    index += 2;
+    return val;
+  }
+
+  while (index < compressed.length) {
+    const noteDuration = nextByte();
+    if (noteDuration == null) {
+      break;
+    }
+
+    const waveform = nextByte();
+
+    const pitches = new Uint8ClampedArray(audio.NOTES_PER_EFFECT).fill(0);
+    const amplitudes = new Uint8ClampedArray(audio.NOTES_PER_EFFECT).fill(0);
+    for (let i = 0; i < audio.NOTES_PER_EFFECT; i++) {
+      pitches[i] = nextByte();
+    }
+
+    for (let i = 0; i < audio.NOTES_PER_EFFECT; i++) {
+      amplitudes[i] = nextByte();
+    }
+
+    result.push({
+      noteDuration,
+      waveform,
+      pitches,
+      amplitudes,
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Populate the spriteBitmap and spriteData from a string containing the
+ * sprite data (as stored in the file). Each pixel is stored as a single
+ * hex digit. These are references into the PALETTE table.
+ * @param {string} text Hex encoded version of sprite data
+ * @see encodeSprites
+ * @return {Uint8ClampedArray} Pixel data
+ */
+export function decodeSprites(text) {
+  const pixelData = new Uint8ClampedArray(sprite.SPRITE_SHEET_WIDTH *
+    sprite.SPRITE_SHEET_HEIGHT * 4);
+  let offset = 0;
+  for (let i = 0; i < text.length; i++) {
+    if (!/[\s)]/.test(text[i])) {
+      const rgba = sprite.PALETTE[parseInt(text[i], 16)];
+      for (let i = 0; i < 4; i++) {
+        pixelData[offset++] = rgba[i];
+      }
+    }
+  }
+
+  return pixelData;
 }
 
 /**

@@ -15,8 +15,8 @@
 import * as loadsave from './loadsave.js';
 
 const MAX_SOUND_EFFECTS = 32;
-const NOTES_PER_EFFECT = 32;
-const soundEffects = [];
+export const NOTES_PER_EFFECT = 32;
+export const soundEffects = [];
 let audioContext = null;
 let audioRunning = false;
 let playerNode = null;
@@ -27,7 +27,6 @@ let soundTable = null;
 /**
  * This is called once, when the page is first loaded.
  */
-// eslint-disable-next-line no-unused-vars
 export function initSoundEditor() {
   soundEffectDiv = document.getElementById('soundstab');
 
@@ -124,6 +123,14 @@ export function initSoundEditor() {
   updateSfxTableValues();
 }
 
+export function setAudioData(data) {
+  for (let i = 0; i < data.length; i++) {
+    soundEffects[i] = data[i];
+  }
+
+  updateSfxTableValues();
+}
+
 /**
  * Create audio context object and sound playback worklet.
  * Note that the worklet isn't started until the user attempts
@@ -146,106 +153,14 @@ export function initAudioContext() {
   });
 }
 
-export function decodeSoundEffects(string) {
-  clearSoundEffects();
-
-  // Remove stray characters
-  const compressed = string.replace(/[^a-f0-9]/gi, '');
-  let index = 0;
-  function nextByte() {
-    if (index >= compressed.length) {
-      return null;
-    }
-
-    const val = parseInt(compressed.substring(index, index + 2), 16);
-    index += 2;
-    return val;
-  }
-
-  for (let i = 0; i < MAX_SOUND_EFFECTS; i++) {
-    const noteDuration = nextByte();
-    if (noteDuration == null) {
-      break;
-    }
-
-    const waveform = nextByte();
-
-    const pitches = [];
-    const amplitudes = [];
-    for (let i = 0; i < NOTES_PER_EFFECT; i++) {
-      pitches.push(nextByte());
-    }
-
-    for (let i = 0; i < NOTES_PER_EFFECT; i++) {
-      amplitudes.push(nextByte());
-    }
-
-    soundEffects[i] = {
-      noteDuration,
-      waveform,
-      pitches,
-      amplitudes,
-    };
-  }
-
-  updateSfxTableValues();
-}
-
-export function encodeSoundEffects() {
-  // Ignore effects that are empty
-  let totalEffects = 0;
-  for (let i = MAX_SOUND_EFFECTS - 1; i >= 0; i--) {
-    if (!soundEffects[i].amplitudes.every((value) => value === 0) ||
-      !soundEffects[i].pitches.every((value) => value === 0)) {
-      totalEffects = i + 1;
-      break;
-    }
-  }
-
-  // Encode effects that are non-zero
-  let result = '';
-  for (let i = 0; i < totalEffects; i++) {
-    result += encodeSoundEffect(soundEffects[i]) + '\n';
-  }
-
-  return result;
-}
-
-function encodeSoundEffect(effect) {
-  let encoded = '';
-  function encodeByte(val) {
-    encoded += val.toString(16).padStart(2, '0');
-  }
-
-  encodeByte(effect.noteDuration);
-  encodeByte(effect.waveform);
-  for (let i = 0; i < NOTES_PER_EFFECT; i++) {
-    if (i < effect.pitches.length) {
-      encodeByte(effect.pitches[i]);
-    } else {
-      encodeByte(0);
-    }
-  }
-
-  for (let i = 0; i < NOTES_PER_EFFECT; i++) {
-    if (i < effect.amplitudes.length) {
-      encodeByte(effect.amplitudes[i]);
-    } else {
-      encodeByte(0);
-    }
-  }
-
-  return encoded;
-}
-
 export function clearSoundEffects() {
   soundEffects.length = 0;
   for (let i = 0; i < MAX_SOUND_EFFECTS; i++) {
     soundEffects.push({
       noteDuration: 0,
       waveform: 0,
-      pitches: new Array(NOTES_PER_EFFECT).fill(0),
-      amplitudes: new Array(NOTES_PER_EFFECT).fill(0),
+      pitches: new Uint8ClampedArray(NOTES_PER_EFFECT).fill(0),
+      amplitudes: new Uint8ClampedArray(NOTES_PER_EFFECT).fill(0),
     });
   }
 }
