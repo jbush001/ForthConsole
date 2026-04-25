@@ -5,6 +5,7 @@ env:
 extends: google
 parserOptions:
   ecmaVersion: latest
+  sourceType: module
 rules:
   require-jsdoc: off
   guard-for-in: off

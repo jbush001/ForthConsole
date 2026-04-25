@@ -1,5 +1,5 @@
 <!--
-Copyright 2024 Jeff Bush
+Copyright 2024-2026 Jeff Bush
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,18 +17,15 @@ limitations under the License.
 <!DOCTYPE html>
 <html>
     <head>
-        <script src="forth.js"></script>
-        <script src="main.js"></script>
-        <script src="sprite-edit.js"></script>
-        <script src="sound-fx-edit.js"></script>
+        <script type="module" src="main.js"></script>
         <link rel="stylesheet" href="style.css">
     </head>
     <body>
         <div class="tabbar">
-            <button class="tablink" onclick="openTab('outputtab', this)">Output</button>
-            <button class="tablink" onclick="openTab('sourcetab', this)" id="defaultOpen">Source</button>
-            <button class="tablink" onclick="openTab('spritestab', this)">Sprites</button>
-            <button class="tablink" onclick="openTab('soundstab', this)">Sound Effects</button>
+            <button id="tab0" class="tablink">Output</button>
+            <button id="tab1" class="tablink">Source</button>
+            <button id="tab2" class="tablink">Sprites</button>
+            <button id="tab3" class="tablink">Sound Effects</button>
         </div>
 
         <div id="outputtab" class="tabcontent">
@@ -48,9 +45,9 @@ limitations under the License.
             </select>
 
             <button id="reset_button">Reset</button>
-            <button id="play_pause_button" onclick="playPause()">Pause</button>
-            <button onclick="saveToServer()">Save</button>
-            <button onclick="newProgram()">New</button>
+            <button id="play_pause_button">Pause</button>
+            <button id="save">Save</button>
+            <button id="newprogram">New</button>
 
             <div>Console output:</div>
             <div id="output"></div>

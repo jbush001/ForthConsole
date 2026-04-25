@@ -1,6 +1,4 @@
-'use strict';
-
-// Copyright 2024 Jeff Bush
+// Copyright 2024-2026 Jeff Bush
 //
 // Licensed under the Apache License, Version 2.0 (the 'License');
 // you may not use this file except in compliance with the License.
@@ -14,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const SPRITE_BLOCK_SIZE = 8;
-const SPRITE_SHEET_W_BLKS = 16;
-const SPRITE_SHEET_H_BLKS = 16;
-const SPRITE_SHEET_WIDTH = SPRITE_SHEET_W_BLKS * SPRITE_BLOCK_SIZE;
-const SPRITE_SHEET_HEIGHT = SPRITE_SHEET_H_BLKS * SPRITE_BLOCK_SIZE;
+import {ForthContext} from './forth.js';
+import * as sprite from './sprites.js';
+import * as audio from './audio.js';
+import * as state from './state.js';
 
 const BUTTON_L = 1;
 const BUTTON_R = 2;
@@ -36,38 +33,8 @@ const BUTTON_MAP = {
   'x': BUTTON_B,
 };
 
-const PALETTE = [
-  [0, 0, 0, 0], // transparent
-  [0, 0, 0, 255], // black
-  [255, 0, 0, 255], // red
-  [0, 192, 0, 255], // light green
-  [0, 0, 255, 255], // blue
-  [255, 0, 255, 255], // magenta
-  [255, 255, 0, 255], // yellow
-  [0, 255, 255, 255], // cyan
-  [128, 128, 128, 255], // gray
-  [0, 165, 255, 255], // light blue
-  [255, 165, 0, 255], // orange
-  [128, 0, 128, 255], // purple
-  [0, 100, 0, 255], // dark green
-  [160, 82, 45, 255], // brown
-  [217, 113, 98, 255], // salmon
-  [255, 255, 255, 255], // white
-];
 
-const INVERSE_PALETTE = new Map();
-for (let i = 0; i < PALETTE.length; i++) {
-  INVERSE_PALETTE.set(PALETTE[i].toString(), i);
-}
 
-const MAX_SOUND_EFFECTS = 32;
-const NOTES_PER_EFFECT = 32;
-const soundEffects = [];
-
-// spriteBitmap must be kept in sync with spriteData (since bitmaps
-// are immutable, we keep spriteData around to modify it).
-const spriteData = new ImageData(SPRITE_SHEET_WIDTH, SPRITE_SHEET_HEIGHT);
-let spriteBitmap = null;
 
 const GLYPH_WIDTH = 8;
 const GLYPH_HEIGHT = 8;
@@ -76,14 +43,10 @@ fontBitmap.src = 'font8x8.png';
 
 let outputCanvas = null;
 let outputContext = null;
-let saveFileName = null;
 
 // Tracks which buttons are currently held.
 let buttonMask = 0;
 
-let audioContext = null;
-let audioRunning = false;
-let playerNode = null;
 
 let forthContext = null;
 
@@ -95,10 +58,38 @@ document.addEventListener('DOMContentLoaded', (event) => {
   outputCanvas = document.getElementById('screen');
   outputContext = outputCanvas.getContext('2d');
 
+  document.getElementById("tab0").addEventListener("click", (e) => {
+    openTab('outputtab', e.currentTarget);
+  });
+
+  document.getElementById("tab1").addEventListener("click", (e) => {
+    openTab('sourcetab', e.currentTarget);
+  });
+
+  document.getElementById("tab2").addEventListener("click", (e) => {
+    openTab('spritestab', e.currentTarget);
+  });
+
+  document.getElementById("tab3").addEventListener("click", (e) => {
+    openTab('soundstab', e.currentTarget);
+  });
+
+  document.getElementById("play_pause_button").addEventListener("click", (e) => {
+    playPause();
+  });
+
+  document.getElementById("save").addEventListener("click", (e) => {
+    saveToServer();
+  });
+
+  document.getElementById("newprogram").addEventListener("click", (e) => {
+    newProgram();
+  });
+
   const source = document.getElementById('source');
   source.addEventListener('keydown', handleSourceKeyDown);
-  source.addEventListener('input', setNeedsSave);
-  source.addEventListener('paste', setNeedsSave);
+  source.addEventListener('input', state.setNeedsSave);
+  source.addEventListener('paste', state.setNeedsSave);
   document.addEventListener('keydown', handlePageKeyDown);
   document.addEventListener('keyup', handlePageKeyUp);
   document.getElementById('fileSelect').addEventListener('change',
@@ -114,10 +105,10 @@ document.addEventListener('DOMContentLoaded', (event) => {
   openTab('outputtab', document.getElementsByClassName('tablink')[0]);
 
   newProgram();
-  initSpriteEditor();
-  initSoundEditor();
+  sprite.initSpriteEditor();
+  audio.initSoundEditor();
   updateFileList();
-  initAudioContext();
+  audio.initAudioContext();
 });
 
 function handleSourceKeyDown(event) {
@@ -175,7 +166,7 @@ function handleFileSelect(event) {
  * @return {str} confirmation message
  */
 function handleUnload(event) {
-  if (needsSave) {
+  if (state.needsSave) {
     const confirmationMessage =
       'Changes you made may not be saved. Are you sure you want to leave?';
     (event || window.event).returnValue = confirmationMessage;
@@ -239,28 +230,6 @@ function handleReplInput(event) {
 }
 
 /**
- * Create audio context object and sound playback worklet.
- * Note that the worklet isn't started until the user attempts
- * to play a sound, both to handle browser requirements for user
- * input to play a sound, and to save CPU when a game is not running.
- */
-function initAudioContext() {
-  audioContext = new AudioContext();
-  audioContext.audioWorklet.addModule('sound-fx-player.js', {
-    credentials: 'omit',
-  }).then(() => {
-    playerNode = new AudioWorkletNode(audioContext, 'sound-fx-player');
-    playerNode.onprocessorerror = (err) => {
-      console.log('worklet node encountered error', err);
-    };
-
-    playerNode.connect(audioContext.destination);
-  }).catch((error) => {
-    console.log('error initializing audio worklet node', error);
-  });
-}
-
-/**
  * Reinitialize all interpreter state.
  * Side effects:
  * - Will stop the game from running if it is already
@@ -288,7 +257,7 @@ function resetInterpreter() {
       writeConsole(val + '\n');
     });
     forthContext.createBuiltinWord('buttons', 0, getButtons);
-    forthContext.createBuiltinWord('sfx', 1, playSoundEffect);
+    forthContext.createBuiltinWord('sfx', 1, audio.playSoundEffect);
     forthContext.createBuiltinWord('words', 0, printWords);
     forthContext.interpretSource(GAME_BUILTINS, 'game-builtins');
     forthContext.interpretSource(`${outputCanvas.width} constant SCREEN_WIDTH
@@ -296,7 +265,7 @@ function resetInterpreter() {
     const src = getSourceCode();
     if (src) {
       forthContext.interpretSource(src,
-        saveFileName ? saveFileName : '<game source>');
+        state.saveFileName ? state.saveFileName : '<game source>');
     }
 
     drawFrameAddr = forthContext.lookupWord('draw_frame');
@@ -325,10 +294,7 @@ function stopRun() {
       drawFrameTimer = -1;
     }
 
-    if (audioRunning) {
-      audioContext.suspend();
-      audioRunning = false;
-    }
+    audio.suspendAudio();
 
     updateControls();
   }
@@ -359,9 +325,9 @@ function newProgram() {
     return;
   }
 
-  needsSave = false;
-  saveFileName = '';
-  updateTitleBar();
+  state.clearNeedsSave();
+  state.setSaveFileName('');
+  state.updateTitleBar();
   setSourceCode(`: draw_frame
     1 cls
     2 set_color
@@ -369,8 +335,8 @@ function newProgram() {
   ;
 `);
 
-  clearSprites();
-  clearSoundEffects();
+  sprite.clearSprites();
+  audio.clearSoundEffects();
   clearScreen(0);
   resetInterpreter();
   updateControls();
@@ -428,8 +394,6 @@ function updateFileList() {
 const SPRITE_DELIMITER = '\n--SPRITE DATA------\n';
 const SOUND_DELIMITER = '\n--SOUND DATA--------\n';
 
-let needsSave = false;
-
 /**
  * Copy source code and sprites to the server (serve.js), which it saves
  * on its local filesystem.
@@ -438,22 +402,22 @@ let needsSave = false;
 // eslint-disable-next-line no-unused-vars
 function saveToServer() {
   console.log('Saving to server...');
-  if (!saveFileName) {
+  if (!state.saveFileName) {
     saveFileName = window.prompt('Enter filename:');
-    document.title = saveFileName;
+    document.title = state.saveFileName;
   }
 
-  if (!saveFileName) {
+  if (!state.saveFileName) {
     return; // user hit cancel.
   }
 
-  if (!saveFileName.toLowerCase().endsWith('.fth')) {
-    saveFileName += '.fth';
+  if (!state.saveFileName.toLowerCase().endsWith('.fth')) {
+    state.setSaveFileName(state.saveFileName + '.fth');
   }
 
   const content = encodeSaveData();
 
-  fetch(`/save/${saveFileName}`, {
+  fetch(`/save/${state.saveFileName}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'text/plain',
@@ -466,8 +430,8 @@ function saveToServer() {
     console.log('Saved');
 
     updateFileList();
-    needsSave = false;
-    updateTitleBar();
+    state.clearNeedsSave();
+    state.updateTitleBar();
   }).catch((error) => {
     alert('Error saving text to server:' + error);
   });
@@ -475,32 +439,10 @@ function saveToServer() {
 
 function encodeSaveData() {
   return getSourceCode() +
-    '\n(' + SPRITE_DELIMITER + encodeSprites() +
-    SOUND_DELIMITER + encodeSoundEffects() + '\n)\n';
+    '\n(' + SPRITE_DELIMITER + sprite.encodeSprites() +
+    SOUND_DELIMITER + audio.encodeSoundEffects() + '\n)\n';
 }
 
-/**
- * Draw current file name, and an asterisk if has unsaved changes.
- */
-function updateTitleBar() {
-  // The star indicates it needs saving.
-  document.title = (saveFileName ? saveFileName : 'Untitled') +
-    (needsSave ? '*' : '');
-}
-
-/**
- * This is called whenever the user modifies content (sprites, sound, source
- * code), and thus it is unsaved. As a side effect it will:
- *  - Display an indicator in the title bar
- *  - Pop up a message if the user tries to close the window without
- *    saving.
- */
-function setNeedsSave() {
-  if (!needsSave) {
-    needsSave = true;
-    updateTitleBar();
-  }
-}
 
 /**
  * Prompt the user if they are about to do something that would lose changes
@@ -510,7 +452,7 @@ function setNeedsSave() {
  *   attempts and lose changes. false if the operation should be cancelled.
  */
 function confirmLoseChanges() {
-  if (needsSave) {
+  if (state.needsSave) {
     const result = confirm('You will lose unsaved changes. Are you sure?');
     if (!result) {
       return false;
@@ -528,17 +470,17 @@ function loadFromServer(filename) {
   stopRun();
 
   console.log('loadFromServer', filename);
-  saveFileName = filename;
-  fetch('games/' + saveFileName).then((response) => {
+  state.setSaveFileName(filename);
+  fetch('games/' + state.saveFileName).then((response) => {
     if (!response.ok) {
-      throw new Error('Network response was not ok');
+      throw new Error(`Server error, returned status ${response.status}`);
     }
 
     return response.text();
   }).then((data) => {
     decodeSaveData(data);
 
-    updateTitleBar();
+    state.updateTitleBar();
     resetInterpreter();
     startRun();
   }).catch((error) => {
@@ -563,201 +505,11 @@ function decodeSaveData(data) {
   const code = data.substring(0, endOfCode);
   setSourceCode(code);
   const sprites = data.substring(split1 + SPRITE_DELIMITER.length, split2);
-  decodeSprites(sprites);
+  sprite.decodeSprites(sprites);
   const sounds = data.substring(split2 + SOUND_DELIMITER.length);
-  decodeSoundEffects(sounds);
+  audio.decodeSoundEffects(sounds);
 
-  needsSave = false;
-}
-
-/**
- * Populate the spriteBitmap and spriteData from a string containing the
- * sprite data (as stored in the file). Each pixel is stored as a single
- * hex digit. These are references into the PALETTE table.
- * @param {string} text Hex encoded version of sprite data
- * @see encodeSprites
- */
-function decodeSprites(text) {
-  clearSprites();
-
-  let outIndex = 0;
-  for (let i = 0; i < text.length; i++) {
-    if (!/[\s)]/.test(text[i])) {
-      const rgba = PALETTE[parseInt(text[i], 16)];
-      for (let i = 0; i < 4; i++) {
-        spriteData.data[outIndex++] = rgba[i];
-      }
-    }
-  }
-
-  createImageBitmap(spriteData).then((bm) => {
-    spriteBitmap = bm;
-    repaintSpriteEdit(); // Sprite editor
-  });
-}
-
-function decodeSoundEffects(string) {
-  clearSoundEffects();
-
-  // Remove stray characters
-  const compressed = string.replace(/[^a-f0-9]/gi, '');
-  let index = 0;
-  function nextByte() {
-    if (index >= compressed.length) {
-      return null;
-    }
-
-    const val = parseInt(compressed.substring(index, index + 2), 16);
-    index += 2;
-    return val;
-  }
-
-  for (let i = 0; i < MAX_SOUND_EFFECTS; i++) {
-    const noteDuration = nextByte();
-    if (noteDuration == null) {
-      break;
-    }
-
-    const waveform = nextByte();
-
-    const pitches = [];
-    const amplitudes = [];
-    for (let i = 0; i < NOTES_PER_EFFECT; i++) {
-      pitches.push(nextByte());
-    }
-
-    for (let i = 0; i < NOTES_PER_EFFECT; i++) {
-      amplitudes.push(nextByte());
-    }
-
-    soundEffects[i] = {
-      noteDuration,
-      waveform,
-      pitches,
-      amplitudes,
-    };
-  }
-
-  updateSfxTableValues();
-}
-
-/**
- * Find index of last non-zero value in array.
- * @param {number} arr
- * @return {number}
- */
-function countTrailingZeros(arr) {
-  for (let i = arr.length - 1; i >= 0; i--) {
-    if (arr[i] != 0) {
-      return i;
-    }
-  }
-
-  return 0;
-}
-
-/**
- * Convert current sprite sheet to a string suitable for storing in a text
- * file. The format is described in decodeSprites.
- * @return {string} Hex representation of image data
- * @see decodeSprites
- */
-function encodeSprites() {
-  // Ignore any zeroes at the end to save space. Walk backward
-  // to determine how many there are.
-  const dataEnd = countTrailingZeros(spriteData.data);
-
-  let result = '';
-  for (let i = 0; i <= dataEnd; i += 4) {
-    const index = INVERSE_PALETTE.get(spriteData.data.slice(i, i + 4).
-        toString());
-    if (index === undefined) {
-      // This shouldn't happen normally.
-      console.log('invalid color in sprite data');
-      result += '0';
-    } else {
-      result += index.toString(16);
-    }
-
-    if (((i / 4) % SPRITE_SHEET_WIDTH) == SPRITE_SHEET_WIDTH - 1) {
-      result += '\n';
-    }
-  }
-
-  return result;
-}
-
-function encodeSoundEffects() {
-  // Ignore effects that are empty
-  let totalEffects = 0;
-  for (let i = MAX_SOUND_EFFECTS - 1; i >= 0; i--) {
-    if (!soundEffects[i].amplitudes.every((value) => value === 0) ||
-      !soundEffects[i].pitches.every((value) => value === 0)) {
-      totalEffects = i + 1;
-      break;
-    }
-  }
-
-  // Encode effects that are non-zero
-  let result = '';
-  for (let i = 0; i < totalEffects; i++) {
-    result += encodeSoundEffect(soundEffects[i]) + '\n';
-  }
-
-  return result;
-}
-
-function encodeSoundEffect(effect) {
-  let encoded = '';
-  function encodeByte(val) {
-    encoded += val.toString(16).padStart(2, '0');
-  }
-
-  encodeByte(effect.noteDuration);
-  encodeByte(effect.waveform);
-  for (let i = 0; i < NOTES_PER_EFFECT; i++) {
-    if (i < effect.pitches.length) {
-      encodeByte(effect.pitches[i]);
-    } else {
-      encodeByte(0);
-    }
-  }
-
-  for (let i = 0; i < NOTES_PER_EFFECT; i++) {
-    if (i < effect.amplitudes.length) {
-      encodeByte(effect.amplitudes[i]);
-    } else {
-      encodeByte(0);
-    }
-  }
-
-  return encoded;
-}
-
-function clearSoundEffects() {
-  soundEffects.length = 0;
-  for (let i = 0; i < MAX_SOUND_EFFECTS; i++) {
-    soundEffects.push({
-      noteDuration: 0,
-      waveform: 0,
-      pitches: new Array(NOTES_PER_EFFECT).fill(0),
-      amplitudes: new Array(NOTES_PER_EFFECT).fill(0),
-    });
-  }
-}
-
-/**
- * Set the sprite sheet to be fully transparent.
- */
-function clearSprites() {
-  for (let i = 0; i < SPRITE_SHEET_WIDTH * SPRITE_SHEET_HEIGHT * 4; i++) {
-    spriteData.data[i] = 0;
-  }
-
-  createImageBitmap(spriteData).then((bm) => {
-    spriteBitmap = bm;
-    repaintSpriteEdit();
-  });
+  state.clearNeedsSave();
 }
 
 /**
@@ -805,20 +557,11 @@ function writeConsole(text) {
 }
 
 /**
- * Convert a color value into a CSS string.
- * @param {number[]} value RGB[A] color.
- * @return {string} CSS string representing the color.
- */
-function makeColorString(value) {
-  return `rgb(${value[0]}, ${value[1]}, ${value[2]})`;
-}
-
-/**
  * Erase the entire drawing area.
  * @param {number} color Index (0-15) into the pallete for the color.
  */
 function clearScreen(color) {
-  outputContext.fillStyle = makeColorString(PALETTE[color & 15]);
+  outputContext.fillStyle = sprite.makeColorString(sprite.PALETTE[color & 15]);
   outputContext.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
 }
 
@@ -839,7 +582,7 @@ function fillRect(left, top, width, height) {
  * @param {number} color Index into palette table, 0-15
  */
 function setColor(color) {
-  const colorStr = makeColorString(PALETTE[color & 15]);
+  const colorStr = sprite.makeColorString(sprite.PALETTE[color & 15]);
   outputContext.strokeStyle = colorStr;
   outputContext.fillStyle = colorStr;
 }
@@ -856,17 +599,17 @@ function setColor(color) {
  * @param {number} flipY 1 if this should be flipped top to bottom.
  */
 function drawSprite(x, y, index, w, h, flipX, flipY) {
-  const sheetRow = Math.floor(index / SPRITE_SHEET_W_BLKS);
-  const sheetCol = index % SPRITE_SHEET_W_BLKS;
-  const pixWidth = w * SPRITE_BLOCK_SIZE;
-  const pixHeight = h * SPRITE_BLOCK_SIZE;
+  const sheetRow = Math.floor(index / sprite.SPRITE_SHEET_W_BLKS);
+  const sheetCol = index % sprite.SPRITE_SHEET_W_BLKS;
+  const pixWidth = w * sprite.SPRITE_BLOCK_SIZE;
+  const pixHeight = h * sprite.SPRITE_BLOCK_SIZE;
   const dx = flipX ? -x - pixWidth : x;
   const dy = flipY ? -y - pixWidth : y;
 
   outputContext.save();
   outputContext.scale(flipX ? -1 : 1, flipY ? -1 : 1);
-  outputContext.drawImage(spriteBitmap, sheetCol * SPRITE_BLOCK_SIZE, sheetRow *
-    SPRITE_BLOCK_SIZE, pixWidth, pixHeight, dx, dy, pixWidth, pixHeight);
+  outputContext.drawImage(sprite.spriteBitmap, sheetCol * sprite.SPRITE_BLOCK_SIZE, sheetRow *
+    sprite.SPRITE_BLOCK_SIZE, pixWidth, pixHeight, dx, dy, pixWidth, pixHeight);
   outputContext.restore();
 }
 
@@ -878,22 +621,6 @@ function getButtons() {
   return [buttonMask];
 }
 
-function playSoundEffect(index) {
-  if (!audioRunning) {
-    // The audio context requires an interaction with the page to start.
-    // Resume lazily to ensure that happens.
-    audioContext.resume();
-    audioRunning = true;
-  }
-
-  if (index >= soundEffects.length || index < 0) {
-    return;
-  }
-
-  if (playerNode) {
-    playerNode.port.postMessage(soundEffects[index]);
-  }
-}
 
 function printWords() {
   for (const word in forthContext.dictionary) {

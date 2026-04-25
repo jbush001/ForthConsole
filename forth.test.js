@@ -1,4 +1,4 @@
-// Copyright 2024 Jeff Bush
+// Copyright 2024-2026 Jeff Bush
 //
 // Licensed under the Apache License, Version 2.0 (the 'License');
 // you may not use this file except in compliance with the License.
@@ -16,12 +16,12 @@
 // Unit tests for core forth interpreter.
 //
 
-const forth = require('./forth');
+import { ForthContext } from './forth.js';
 
 const DEBUG_SRC_NAME = 'testfile';
 
 function runCode(source) {
-  const ctx = new forth.ForthContext();
+  const ctx = new ForthContext();
   let strval = '';
   ctx.createBuiltinWord('.', 1, (val) => {
     strval += val.toString() + '\n';
@@ -137,7 +137,7 @@ main
 });
 
 test('while loop', () => {
-  src = `
+  const src = `
   : main
   10
   begin
@@ -155,7 +155,7 @@ test('while loop', () => {
 });
 
 test('until loop', () => {
-  src = `
+  const src = `
   : main
     10
     begin
@@ -173,7 +173,7 @@ test('until loop', () => {
 });
 
 test('nested loop', () => {
-  src = `
+  const src = `
   variable a
   variable b
   : main
@@ -197,7 +197,7 @@ test('nested loop', () => {
 });
 
 test('do loop', () => {
-  src = `
+  const src = `
   : main
     10 1 do
       i .
@@ -211,7 +211,7 @@ test('do loop', () => {
 
 
 test('nested do loop', () => {
-  src = `
+  const src = `
   : main
     4 1 do
       100 97 do
@@ -449,7 +449,7 @@ test('out of memory 2', () => {
 
 
 test('invoke native underflow', () => {
-  const ctx = new forth.ForthContext();
+  const ctx = new ForthContext();
   ctx.createBuiltinWord('foo', 1, (val) => {});
 
   const t = () => {
@@ -460,7 +460,7 @@ test('invoke native underflow', () => {
 });
 
 test('invoke native return', () => {
-  const ctx = new forth.ForthContext();
+  const ctx = new ForthContext();
   ctx.createBuiltinWord('foo', 1, (val) => {
     return [val + 1, val + 2];
   });
@@ -693,7 +693,7 @@ test('state', () => {
 
 test('push undefined', () => {
   const t = () => {
-    const ctx = new forth.ForthContext();
+    const ctx = new ForthContext();
     ctx._push(undefined);
   };
   expect(t).toThrow('internal error: undefined pushed on stack');
@@ -862,7 +862,7 @@ test('unterminated quote', () => {
 
 
 test('lookup word', () => {
-  const ctx = new forth.ForthContext();
+  const ctx = new ForthContext();
   ctx.interpretSource(`
     : foo
        1234
@@ -881,7 +881,7 @@ test('lookup word', () => {
 });
 
 test('call word', () => {
-  const ctx = new forth.ForthContext();
+  const ctx = new ForthContext();
   let strval = '';
   ctx.createBuiltinWord('.', 1, (val) => {
     strval = val.toString();
@@ -905,7 +905,7 @@ test('call word', () => {
 });
 
 test('read byte', () => {
-  const ctx = new forth.ForthContext();
+  const ctx = new ForthContext();
   ctx.interpretSource('hex create foo 12345678 ,');
   const fooAddr = ctx.lookupWord('foo');
   expect(ctx.fetchByte(fooAddr)).toBe(0x78);

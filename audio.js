@@ -1,6 +1,4 @@
-'use strict';
-
-// Copyright 2024 Jeff Bush
+// Copyright 2024-2026 Jeff Bush
 //
 // Licensed under the Apache License, Version 2.0 (the 'License');
 // you may not use this file except in compliance with the License.
@@ -14,8 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import * as state from './state.js';
 
-// NOTES_PER_EFFECT and soundEffects inherited from main.js
+const MAX_SOUND_EFFECTS = 32;
+const NOTES_PER_EFFECT = 32;
+const soundEffects = [];
+let audioContext = null;
+let audioRunning = false;
+let playerNode = null;
 
 // eslint-disable-next-line no-unused-vars
 let soundEffectDiv = null;
@@ -26,7 +30,7 @@ let soundTable = null;
  * This is called once, when the page is first loaded.
  */
 // eslint-disable-next-line no-unused-vars
-function initSoundEditor() {
+export function initSoundEditor() {
   soundEffectDiv = document.getElementById('soundstab');
 
   document.getElementById('prevfx').addEventListener('click', () => {
@@ -53,7 +57,7 @@ function initSoundEditor() {
         0), 255);
     durationInput.value = noteDuration;
     soundEffects[currentFx].noteDuration = noteDuration;
-    setNeedsSave();
+    state.setNeedsSave();
   });
 
   const waveformInput = document.getElementById('waveform');
@@ -71,7 +75,7 @@ function initSoundEditor() {
         break;
     }
     soundEffects[currentFx].waveform = waveform;
-    setNeedsSave();
+    state.setNeedsSave();
   });
 
   // Create a table of volumes and pitches.
@@ -99,7 +103,7 @@ function initSoundEditor() {
           soundEffects[currentFx].amplitudes[j] = value;
         }
 
-        setNeedsSave();
+        state.setNeedsSave();
       });
 
       cell.addEventListener('focus', () => {
@@ -121,6 +125,157 @@ function initSoundEditor() {
   soundEffectDiv.appendChild(soundTable);
   updateSfxTableValues();
 }
+
+/**
+ * Create audio context object and sound playback worklet.
+ * Note that the worklet isn't started until the user attempts
+ * to play a sound, both to handle browser requirements for user
+ * input to play a sound, and to save CPU when a game is not running.
+ */
+export function initAudioContext() {
+  audioContext = new AudioContext();
+  audioContext.audioWorklet.addModule('sound-fx-player.js', {
+    credentials: 'omit',
+  }).then(() => {
+    playerNode = new AudioWorkletNode(audioContext, 'sound-fx-player');
+    playerNode.onprocessorerror = (err) => {
+      console.log('worklet node encountered error', err);
+    };
+
+    playerNode.connect(audioContext.destination);
+  }).catch((error) => {
+    console.log('error initializing audio worklet node', error);
+  });
+}
+
+export function decodeSoundEffects(string) {
+  clearSoundEffects();
+
+  // Remove stray characters
+  const compressed = string.replace(/[^a-f0-9]/gi, '');
+  let index = 0;
+  function nextByte() {
+    if (index >= compressed.length) {
+      return null;
+    }
+
+    const val = parseInt(compressed.substring(index, index + 2), 16);
+    index += 2;
+    return val;
+  }
+
+  for (let i = 0; i < MAX_SOUND_EFFECTS; i++) {
+    const noteDuration = nextByte();
+    if (noteDuration == null) {
+      break;
+    }
+
+    const waveform = nextByte();
+
+    const pitches = [];
+    const amplitudes = [];
+    for (let i = 0; i < NOTES_PER_EFFECT; i++) {
+      pitches.push(nextByte());
+    }
+
+    for (let i = 0; i < NOTES_PER_EFFECT; i++) {
+      amplitudes.push(nextByte());
+    }
+
+    soundEffects[i] = {
+      noteDuration,
+      waveform,
+      pitches,
+      amplitudes,
+    };
+  }
+
+  updateSfxTableValues();
+}
+
+export function encodeSoundEffects() {
+  // Ignore effects that are empty
+  let totalEffects = 0;
+  for (let i = MAX_SOUND_EFFECTS - 1; i >= 0; i--) {
+    if (!soundEffects[i].amplitudes.every((value) => value === 0) ||
+      !soundEffects[i].pitches.every((value) => value === 0)) {
+      totalEffects = i + 1;
+      break;
+    }
+  }
+
+  // Encode effects that are non-zero
+  let result = '';
+  for (let i = 0; i < totalEffects; i++) {
+    result += encodeSoundEffect(soundEffects[i]) + '\n';
+  }
+
+  return result;
+}
+
+function encodeSoundEffect(effect) {
+  let encoded = '';
+  function encodeByte(val) {
+    encoded += val.toString(16).padStart(2, '0');
+  }
+
+  encodeByte(effect.noteDuration);
+  encodeByte(effect.waveform);
+  for (let i = 0; i < NOTES_PER_EFFECT; i++) {
+    if (i < effect.pitches.length) {
+      encodeByte(effect.pitches[i]);
+    } else {
+      encodeByte(0);
+    }
+  }
+
+  for (let i = 0; i < NOTES_PER_EFFECT; i++) {
+    if (i < effect.amplitudes.length) {
+      encodeByte(effect.amplitudes[i]);
+    } else {
+      encodeByte(0);
+    }
+  }
+
+  return encoded;
+}
+
+export function clearSoundEffects() {
+  soundEffects.length = 0;
+  for (let i = 0; i < MAX_SOUND_EFFECTS; i++) {
+    soundEffects.push({
+      noteDuration: 0,
+      waveform: 0,
+      pitches: new Array(NOTES_PER_EFFECT).fill(0),
+      amplitudes: new Array(NOTES_PER_EFFECT).fill(0),
+    });
+  }
+}
+
+export function suspendAudio() {
+  if (audioRunning) {
+    audioContext.suspend();
+    audioRunning = false;
+  }
+}
+
+export function playSoundEffect(index) {
+  if (!audioRunning) {
+    // The audio context requires an interaction with the page to start.
+    // Resume lazily to ensure that happens.
+    audioContext.resume();
+    audioRunning = true;
+  }
+
+  if (index >= soundEffects.length || index < 0) {
+    return;
+  }
+
+  if (playerNode) {
+    playerNode.port.postMessage(soundEffects[index]);
+  }
+}
+
 
 /**
  * Update all display values in page whenever underlying values have changed.

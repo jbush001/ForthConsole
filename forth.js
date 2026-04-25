@@ -1,6 +1,4 @@
-'use strict';
-
-// Copyright 2024 Jeff Bush
+// Copyright 2024-2026 Jeff Bush
 //
 // Licensed under the Apache License, Version 2.0 (the 'License');
 // you may not use this file except in compliance with the License.
@@ -339,7 +337,7 @@ class DebugInfo {
   }
 }
 
-class ForthContext {
+export class ForthContext {
   constructor() {
     this.returnStack = [];
 
@@ -1214,11 +1212,4 @@ class ForthContext {
 
     return frames;
   }
-}
-
-// Used for unit tests, which use require() to import this module.
-if (typeof module !== 'undefined') {
-  module.exports = {
-    ForthContext,
-  };
 }

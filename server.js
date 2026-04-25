@@ -1,4 +1,4 @@
-// Copyright 2024 Jeff Bush
+// Copyright 2024-2026 Jeff Bush
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,9 +14,14 @@
 
 // Local web server, which allows saving games from the web app.
 
-const express = require('express');
-const fs = require('fs');
-const path = require('path');
+import express from 'express';
+import * as fs from 'fs';
+import * as path from 'path';
+import {fileURLToPath} from 'node:url';
+import {dirname} from 'node:path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 

@@ -1,5 +1,3 @@
-'use strict';
-
 // Copyright 2024 Jeff Bush
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,9 +12,138 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import * as state from './state.js';
+
+export const SPRITE_BLOCK_SIZE = 8;
+export const SPRITE_SHEET_W_BLKS = 16;
+export const SPRITE_SHEET_H_BLKS = 16;
+export const SPRITE_SHEET_WIDTH = SPRITE_SHEET_W_BLKS * SPRITE_BLOCK_SIZE;
+export const SPRITE_SHEET_HEIGHT = SPRITE_SHEET_H_BLKS * SPRITE_BLOCK_SIZE;
+
+export const PALETTE = [
+  [0, 0, 0, 0], // transparent
+  [0, 0, 0, 255], // black
+  [255, 0, 0, 255], // red
+  [0, 192, 0, 255], // light green
+  [0, 0, 255, 255], // blue
+  [255, 0, 255, 255], // magenta
+  [255, 255, 0, 255], // yellow
+  [0, 255, 255, 255], // cyan
+  [128, 128, 128, 255], // gray
+  [0, 165, 255, 255], // light blue
+  [255, 165, 0, 255], // orange
+  [128, 0, 128, 255], // purple
+  [0, 100, 0, 255], // dark green
+  [160, 82, 45, 255], // brown
+  [217, 113, 98, 255], // salmon
+  [255, 255, 255, 255], // white
+];
+
+const INVERSE_PALETTE = new Map();
+for (let i = 0; i < PALETTE.length; i++) {
+  INVERSE_PALETTE.set(PALETTE[i].toString(), i);
+}
+
 let spriteCanvas = null;
 let spriteContext = null;
-// spriteBitmap and spriteData are defined in main.js
+
+// spriteBitmap must be kept in sync with spriteData (since bitmaps
+// are immutable, we keep spriteData around to modify it).
+export const spriteData = new ImageData(SPRITE_SHEET_WIDTH,
+    SPRITE_SHEET_HEIGHT);
+export let spriteBitmap = null;
+
+export function setSpriteBitmap(bitmap) {
+  spriteBitmap = bitmap;
+}
+
+/**
+ * Populate the spriteBitmap and spriteData from a string containing the
+ * sprite data (as stored in the file). Each pixel is stored as a single
+ * hex digit. These are references into the PALETTE table.
+ * @param {string} text Hex encoded version of sprite data
+ * @see encodeSprites
+ */
+export function decodeSprites(text) {
+  clearSprites();
+
+  let outIndex = 0;
+  for (let i = 0; i < text.length; i++) {
+    if (!/[\s)]/.test(text[i])) {
+      const rgba = PALETTE[parseInt(text[i], 16)];
+      for (let i = 0; i < 4; i++) {
+        spriteData.data[outIndex++] = rgba[i];
+      }
+    }
+  }
+
+  createImageBitmap(spriteData).then((bm) => {
+    setSpriteBitmap(bm);
+    repaintSpriteEdit(); // Sprite editor
+  });
+}
+
+/**
+ * Convert current sprite sheet to a string suitable for storing in a text
+ * file. The format is described in decodeSprites.
+ * @return {string} Hex representation of image data
+ * @see decodeSprites
+ */
+export function encodeSprites() {
+  // Ignore any zeroes at the end to save space. Walk backward
+  // to determine how many there are.
+  const dataEnd = countTrailingZeros(spriteData.data);
+
+  let result = '';
+  for (let i = 0; i <= dataEnd; i += 4) {
+    const index = INVERSE_PALETTE.get(spriteData.data.slice(i, i + 4).
+        toString());
+    if (index === undefined) {
+      // This shouldn't happen normally.
+      console.log('invalid color in sprite data');
+      result += '0';
+    } else {
+      result += index.toString(16);
+    }
+
+    if (((i / 4) % SPRITE_SHEET_WIDTH) ==
+      SPRITE_SHEET_WIDTH - 1) {
+      result += '\n';
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Find index of last non-zero value in array.
+ * @param {number} arr
+ * @return {number}
+ */
+function countTrailingZeros(arr) {
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (arr[i] != 0) {
+      return i;
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * Set the sprite sheet to be fully transparent.
+ */
+export function clearSprites() {
+  for (let i = 0; i < SPRITE_SHEET_WIDTH *
+    SPRITE_SHEET_HEIGHT * 4; i++) {
+    spriteData.data[i] = 0;
+  }
+
+  createImageBitmap(spriteData).then((bm) => {
+    setSpriteBitmap(bm);
+    repaintSpriteEdit();
+  });
+}
 
 /**
  * Base class for any UI component.
@@ -64,8 +191,18 @@ function repaint() {
 /**
  * Schedule a repaint in the event loop.
  */
-function repaintSpriteEdit() {
+export function repaintSpriteEdit() {
   setTimeout(repaint, 0);
+}
+
+
+/**
+ * Convert a color value into a CSS string.
+ * @param {number[]} value RGB[A] color.
+ * @return {string} CSS string representing the color.
+ */
+export function makeColorString(value) {
+  return `rgb(${value[0]}, ${value[1]}, ${value[2]})`;
 }
 
 /**
@@ -464,7 +601,7 @@ function setPixel(x, y, colorVal) {
     pix[pixelIndex + i] = colorVal[i];
   }
 
-  setNeedsSave();
+  state.setNeedsSave();
   createImageBitmap(spriteData).then((bm) => {
     spriteBitmap = bm;
     repaint();
@@ -573,7 +710,7 @@ async function pasteCanvas(event, model) {
       spriteBitmap = await createImageBitmap(tempCanvas);
       spriteData.data.set(tempContext.getImageData(0, 0,
           tempCanvas.width, tempCanvas.height).data);
-      setNeedsSave();
+      state.setNeedsSave();
       repaintSpriteEdit();
       break;
     }
@@ -713,7 +850,7 @@ function rgbToCielab(tuple) {
  * This is only called once when page is initially loaded
  */
 // eslint-disable-next-line no-unused-vars
-function initSpriteEditor() {
+export function initSpriteEditor() {
   spriteCanvas = document.getElementById('sprite_edit');
   spriteContext = spriteCanvas.getContext('2d');
   spriteContext.imageSmoothingEnabled = false;
