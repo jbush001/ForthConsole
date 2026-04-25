@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as state from './state.js';
+import * as loadsave from './loadsave.js';
 
 const MAX_SOUND_EFFECTS = 32;
 const NOTES_PER_EFFECT = 32;
@@ -57,7 +57,7 @@ export function initSoundEditor() {
         0), 255);
     durationInput.value = noteDuration;
     soundEffects[currentFx].noteDuration = noteDuration;
-    state.setNeedsSave();
+    loadsave.setNeedsSave();
   });
 
   const waveformInput = document.getElementById('waveform');
@@ -75,7 +75,7 @@ export function initSoundEditor() {
         break;
     }
     soundEffects[currentFx].waveform = waveform;
-    state.setNeedsSave();
+    loadsave.setNeedsSave();
   });
 
   // Create a table of volumes and pitches.
@@ -103,7 +103,7 @@ export function initSoundEditor() {
           soundEffects[currentFx].amplitudes[j] = value;
         }
 
-        state.setNeedsSave();
+        loadsave.setNeedsSave();
       });
 
       cell.addEventListener('focus', () => {

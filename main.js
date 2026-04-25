@@ -15,7 +15,7 @@
 import {ForthContext} from './forth.js';
 import * as sprite from './sprites.js';
 import * as audio from './audio.js';
-import * as state from './state.js';
+import * as loadsave from './loadsave.js';
 
 const BUTTON_L = 1;
 const BUTTON_R = 2;
@@ -32,9 +32,6 @@ const BUTTON_MAP = {
   'z': BUTTON_A,
   'x': BUTTON_B,
 };
-
-
-
 
 const GLYPH_WIDTH = 8;
 const GLYPH_HEIGHT = 8;
@@ -79,7 +76,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
   });
 
   document.getElementById("save").addEventListener("click", (e) => {
-    saveToServer();
+    loadsave.saveToServer();
   });
 
   document.getElementById("newprogram").addEventListener("click", (e) => {
@@ -88,8 +85,8 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
   const source = document.getElementById('source');
   source.addEventListener('keydown', handleSourceKeyDown);
-  source.addEventListener('input', state.setNeedsSave);
-  source.addEventListener('paste', state.setNeedsSave);
+  source.addEventListener('input', loadsave.setNeedsSave);
+  source.addEventListener('paste', loadsave.setNeedsSave);
   document.addEventListener('keydown', handlePageKeyDown);
   document.addEventListener('keyup', handlePageKeyUp);
   document.getElementById('fileSelect').addEventListener('change',
@@ -107,7 +104,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
   newProgram();
   sprite.initSpriteEditor();
   audio.initSoundEditor();
-  updateFileList();
+  loadsave.updateFileList();
   audio.initAudioContext();
 });
 
@@ -133,7 +130,7 @@ function handlePageKeyDown(event) {
   // Save keyboard shortcut
   if ((event.altKey || event.ctrlKey) && event.key === 's') {
     event.preventDefault();
-    saveToServer();
+    loadsave.saveToServer();
   }
 }
 
@@ -152,7 +149,11 @@ function handleFileSelect(event) {
     return;
   }
 
-  loadFromServer(event.target.value);
+  stopRun();
+  loadsave.loadFromServer(event.target.value).then(() => {
+    resetInterpreter();
+    startRun();
+  });
 
   // Move focus away from this element, otherwise when the user taps
   // keys to interact with the game, it will activate this control again.
@@ -166,7 +167,7 @@ function handleFileSelect(event) {
  * @return {str} confirmation message
  */
 function handleUnload(event) {
-  if (state.needsSave) {
+  if (loadsave.needsSave) {
     const confirmationMessage =
       'Changes you made may not be saved. Are you sure you want to leave?';
     (event || window.event).returnValue = confirmationMessage;
@@ -262,10 +263,10 @@ function resetInterpreter() {
     forthContext.interpretSource(GAME_BUILTINS, 'game-builtins');
     forthContext.interpretSource(`${outputCanvas.width} constant SCREEN_WIDTH
     ${outputCanvas.height} constant SCREEN_HEIGHT`, 'game-builtins');
-    const src = getSourceCode();
+    const src = loadsave.getSourceCode();
     if (src) {
       forthContext.interpretSource(src,
-        state.saveFileName ? state.saveFileName : '<game source>');
+        loadsave.saveFileName ? loadsave.saveFileName : '<game source>');
     }
 
     drawFrameAddr = forthContext.lookupWord('draw_frame');
@@ -325,10 +326,10 @@ function newProgram() {
     return;
   }
 
-  state.clearNeedsSave();
-  state.setSaveFileName('');
-  state.updateTitleBar();
-  setSourceCode(`: draw_frame
+  loadsave.clearNeedsSave();
+  loadsave.setSaveFileName('');
+  loadsave.updateTitleBar();
+  loadsave.setSourceCode(`: draw_frame
     1 cls
     2 set_color
     16 16 112 112 fill_rect
@@ -372,79 +373,6 @@ function readForthString(ptr, length) {
 }
 
 /**
- * Load the list of available files from the server, which are stored
- * in a manifest file.
- * This uses a manifest file rather than an explicit API, because the
- * former allows serving from a public web server like github for demo mode.
- * See serve.js for more description.
- */
-function updateFileList() {
-  fetch('games/manifest.json').then((response) => {
-    return response.json();
-  }).then((files) => {
-    const fileSelect = document.getElementById('fileSelect');
-    fileSelect.innerHTML = '<option value="">Select a file...</option>';
-    const selectOptions = files.map((file) =>
-      `<option value="${file}">${file}</option>`);
-    fileSelect.innerHTML += selectOptions.join('');
-  });
-}
-
-// These delineate where sprite and sound data occur in the save file.
-const SPRITE_DELIMITER = '\n--SPRITE DATA------\n';
-const SOUND_DELIMITER = '\n--SOUND DATA--------\n';
-
-/**
- * Copy source code and sprites to the server (serve.js), which it saves
- * on its local filesystem.
- * @note this does not check needsSave and will always save, just to be safe.
- */
-// eslint-disable-next-line no-unused-vars
-function saveToServer() {
-  console.log('Saving to server...');
-  if (!state.saveFileName) {
-    saveFileName = window.prompt('Enter filename:');
-    document.title = state.saveFileName;
-  }
-
-  if (!state.saveFileName) {
-    return; // user hit cancel.
-  }
-
-  if (!state.saveFileName.toLowerCase().endsWith('.fth')) {
-    state.setSaveFileName(state.saveFileName + '.fth');
-  }
-
-  const content = encodeSaveData();
-
-  fetch(`/save/${state.saveFileName}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain',
-    },
-    body: content,
-  }).then((response) => {
-    if (!response.ok) {
-      throw new Error('Unable to save to server');
-    }
-    console.log('Saved');
-
-    updateFileList();
-    state.clearNeedsSave();
-    state.updateTitleBar();
-  }).catch((error) => {
-    alert('Error saving text to server:' + error);
-  });
-}
-
-function encodeSaveData() {
-  return getSourceCode() +
-    '\n(' + SPRITE_DELIMITER + sprite.encodeSprites() +
-    SOUND_DELIMITER + audio.encodeSoundEffects() + '\n)\n';
-}
-
-
-/**
  * Prompt the user if they are about to do something that would lose changes
  * (e.g. load a new file) and give them a chance to cancel that operation and
  * save.
@@ -452,7 +380,7 @@ function encodeSaveData() {
  *   attempts and lose changes. false if the operation should be cancelled.
  */
 function confirmLoseChanges() {
-  if (state.needsSave) {
+  if (loadsave.needsSave) {
     const result = confirm('You will lose unsaved changes. Are you sure?');
     if (!result) {
       return false;
@@ -462,88 +390,7 @@ function confirmLoseChanges() {
   return true;
 }
 
-/**
- * Load source code and sprites from the server over HTTP.
- * @param {string} filename Name of file to load
- */
-function loadFromServer(filename) {
-  stopRun();
 
-  console.log('loadFromServer', filename);
-  state.setSaveFileName(filename);
-  fetch('games/' + state.saveFileName).then((response) => {
-    if (!response.ok) {
-      throw new Error(`Server error, returned status ${response.status}`);
-    }
-
-    return response.text();
-  }).then((data) => {
-    decodeSaveData(data);
-
-    state.updateTitleBar();
-    resetInterpreter();
-    startRun();
-  }).catch((error) => {
-    alert('Error loading file: ' + error);
-  });
-}
-
-/**
- * Parse string contents of a file containing sprite, source, and sound
- * data and populate global data structures used by the engine.
- * @param {string} data
- */
-function decodeSaveData(data) {
-  // Split this into sections.
-  const split1 = data.indexOf(SPRITE_DELIMITER);
-  const split2 = data.indexOf(SOUND_DELIMITER);
-  if (split1 == -1 || split2 == -1) {
-    throw new Error('error loading file: missing sound/sprite data');
-  }
-
-  const endOfCode = data.lastIndexOf('(', split1);
-  const code = data.substring(0, endOfCode);
-  setSourceCode(code);
-  const sprites = data.substring(split1 + SPRITE_DELIMITER.length, split2);
-  sprite.decodeSprites(sprites);
-  const sounds = data.substring(split2 + SOUND_DELIMITER.length);
-  audio.decodeSoundEffects(sounds);
-
-  state.clearNeedsSave();
-}
-
-/**
- * Replace the contents of the source code tab.
- * @param {string} text
- */
-function setSourceCode(text) {
-  const source = document.getElementById('source');
-  source.innerHTML = '';
-  for (const line of text.trimEnd().split('\n')) {
-    const lineDiv = document.createElement('div');
-    if (line == '') {
-      lineDiv.innerText = ' '; // Avoid collapsing divs.
-    } else {
-      lineDiv.innerText = line;
-    }
-    source.appendChild(lineDiv);
-  }
-}
-
-/**
- * Get the content of the source code tab as a string.
- * @return {string} content of the source code tab
- */
-function getSourceCode() {
-  let source = '';
-  for (const lineDiv of document.getElementById('source').childNodes) {
-    if (lineDiv.innerText) {
-      source += lineDiv.innerText.trimEnd() + '\n';
-    }
-  }
-
-  return source;
-}
 
 /**
  * Copy text into an area in the web interface that shows program output.

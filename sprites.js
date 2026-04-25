@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as state from './state.js';
+import * as loadsave from './loadsave.js';
 
 export const SPRITE_BLOCK_SIZE = 8;
 export const SPRITE_SHEET_W_BLKS = 16;
@@ -601,7 +601,7 @@ function setPixel(x, y, colorVal) {
     pix[pixelIndex + i] = colorVal[i];
   }
 
-  state.setNeedsSave();
+  loadsave.setNeedsSave();
   createImageBitmap(spriteData).then((bm) => {
     spriteBitmap = bm;
     repaint();
@@ -710,7 +710,7 @@ async function pasteCanvas(event, model) {
       spriteBitmap = await createImageBitmap(tempCanvas);
       spriteData.data.set(tempContext.getImageData(0, 0,
           tempCanvas.width, tempCanvas.height).data);
-      state.setNeedsSave();
+      loadsave.setNeedsSave();
       repaintSpriteEdit();
       break;
     }
