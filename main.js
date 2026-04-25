@@ -44,42 +44,40 @@ let outputContext = null;
 // Tracks which buttons are currently held.
 let buttonMask = 0;
 
-
 let forthContext = null;
-
 let running = false;
-
 
 // Initialize once when the page is loaded.
 document.addEventListener('DOMContentLoaded', (event) => {
   outputCanvas = document.getElementById('screen');
   outputContext = outputCanvas.getContext('2d');
 
-  document.getElementById("tab0").addEventListener("click", (e) => {
+  document.getElementById('tab0').addEventListener('click', (e) => {
     openTab('outputtab', e.currentTarget);
   });
 
-  document.getElementById("tab1").addEventListener("click", (e) => {
+  document.getElementById('tab1').addEventListener('click', (e) => {
     openTab('sourcetab', e.currentTarget);
   });
 
-  document.getElementById("tab2").addEventListener("click", (e) => {
+  document.getElementById('tab2').addEventListener('click', (e) => {
     openTab('spritestab', e.currentTarget);
   });
 
-  document.getElementById("tab3").addEventListener("click", (e) => {
+  document.getElementById('tab3').addEventListener('click', (e) => {
     openTab('soundstab', e.currentTarget);
   });
 
-  document.getElementById("play_pause_button").addEventListener("click", (e) => {
-    playPause();
-  });
+  document.getElementById('play_pause_button').addEventListener('click',
+      (e) => {
+        playPause();
+      });
 
-  document.getElementById("save").addEventListener("click", (e) => {
+  document.getElementById('save').addEventListener('click', (e) => {
     loadsave.saveToServer();
   });
 
-  document.getElementById("newprogram").addEventListener("click", (e) => {
+  document.getElementById('newprogram').addEventListener('click', (e) => {
     newProgram();
   });
 
@@ -183,7 +181,7 @@ function handleReplInput(event) {
   switch (event.key) {
     case 'Enter':
       try {
-        const command = inputElem.value
+        const command = inputElem.value;
         inputElem.value = '';
         commandHistory.push(command);
         historyIndex = -1;
@@ -390,8 +388,6 @@ function confirmLoseChanges() {
   return true;
 }
 
-
-
 /**
  * Copy text into an area in the web interface that shows program output.
  * This is usually invoked from the forth '.' word.
@@ -455,8 +451,10 @@ function drawSprite(x, y, index, w, h, flipX, flipY) {
 
   outputContext.save();
   outputContext.scale(flipX ? -1 : 1, flipY ? -1 : 1);
-  outputContext.drawImage(sprite.spriteBitmap, sheetCol * sprite.SPRITE_BLOCK_SIZE, sheetRow *
-    sprite.SPRITE_BLOCK_SIZE, pixWidth, pixHeight, dx, dy, pixWidth, pixHeight);
+  outputContext.drawImage(sprite.spriteBitmap, sheetCol *
+    sprite.SPRITE_BLOCK_SIZE, sheetRow * sprite.SPRITE_BLOCK_SIZE,
+    pixWidth, pixHeight, dx, dy, pixWidth, pixHeight);
+
   outputContext.restore();
 }
 
