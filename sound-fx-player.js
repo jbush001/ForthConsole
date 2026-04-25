@@ -49,7 +49,8 @@ class SoundEffectsPlayer extends AudioWorkletProcessor {
     this.wavefn = square;
   }
 
-  // @bug: This has popping and crackling because of abrupt transitions.
+  // @bug: This has popping and crackling because of abrupt transitions
+  // at the beginning and end of playback.
   process(inputs, outputs, parameters) {
     const outputBuf = outputs[0][0];
     if (this.pitches === null || this.effectIndex == this.pitches.length) {

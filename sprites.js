@@ -845,7 +845,6 @@ function rgbToCielab(tuple) {
  * Set up resources related to the sprite editor.
  * This is only called once when page is initially loaded
  */
-// eslint-disable-next-line no-unused-vars
 export function initSpriteEditor() {
   spriteCanvas = document.getElementById('sprite_edit');
   spriteContext = spriteCanvas.getContext('2d');

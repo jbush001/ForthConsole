@@ -16,7 +16,7 @@
 // Unit tests for core forth interpreter.
 //
 
-import { ForthContext } from './forth.js';
+import {ForthContext} from './forth.js';
 
 const DEBUG_SRC_NAME = 'testfile';
 
@@ -209,7 +209,6 @@ test('do loop', () => {
   expect(runCode(src)).toBe('1\n2\n3\n4\n5\n6\n7\n8\n9');
 });
 
-
 test('nested do loop', () => {
   const src = `
   : main
@@ -401,7 +400,6 @@ test('fetch out of range 2', () => {
   expect(t).toThrow('Memory fetch out of range: 9999999');
 });
 
-
 test('byte store out of range 1', () => {
   const t = () => {
     runCode('2 -1 c!');
@@ -430,7 +428,6 @@ test('byte fetch out of range 2', () => {
   expect(t).toThrow('Memory fetch out of range: 9999999');
 });
 
-
 // This is a little tricky, because we need to cross the stack boundary
 // without triggering a stack overflow.
 test('out of memory 1', () => {
@@ -446,7 +443,6 @@ test('out of memory 2', () => {
   };
   expect(t).toThrow('out of memory');
 });
-
 
 test('invoke native underflow', () => {
   const ctx = new ForthContext();
@@ -604,7 +600,6 @@ test('constant in def', () => {
   expect(t).toThrow(`${DEBUG_SRC_NAME}:1: constant inside colon def`);
 });
 
-
 test('set here', () => {
   expect(runCode(`
     : main
@@ -673,7 +668,6 @@ test('unknown word3', () => {
   };
   expect(t).toThrow(`${DEBUG_SRC_NAME}:1: unknown word adsfasdf`);
 });
-
 
 test('state', () => {
   expect(runCode(`
@@ -781,7 +775,6 @@ test('rot', () => {
   `)).toBe('2\n4\n3\n1\n7\n6\n8\n5');
 });
 
-
 test('load byte', () => {
   expect(runCode(`
     hex
@@ -805,7 +798,6 @@ test('load byte sign extension', () => {
     foo c@ .
   `)).toBe('255');
 });
-
 
 test('store byte', () => {
   expect(runCode(`
@@ -859,7 +851,6 @@ test('unterminated quote', () => {
   };
   expect(t).toThrow(`${DEBUG_SRC_NAME}:3: unterminated quote`);
 });
-
 
 test('lookup word', () => {
   const ctx = new ForthContext();

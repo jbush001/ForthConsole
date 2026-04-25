@@ -18,10 +18,9 @@ import express from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
 import {fileURLToPath} from 'node:url';
-import {dirname} from 'node:path';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -54,8 +53,8 @@ app.post('/save/:filename', (req, res) => {
 /**
  * Create a new manifest file on the local filesystem.
  * The manifest file contains a list of all files that are in the games
- * directory. While this could have been a REST call (e.g. list), that
- * would preclude hosting files on a public server like github.
+ * directory. We use a file instead of a REST call (e.g. list) to
+ * allow static hosting of files on a public server like github.
  */
 function writeManifest() {
   const directoryPath = path.join(__dirname, 'games');

@@ -41,10 +41,6 @@ export function setSaveFileName(value) {
   saveFileName = value;
 }
 
-export function clearFileName() {
-  saveFileName = '';
-}
-
 /**
  * Draw current file name, and an asterisk if has unsaved changes.
  */
@@ -185,7 +181,6 @@ export function getSourceCode() {
 
   return source;
 }
-
 
 /**
  * Load the list of available files from the server, which are stored
