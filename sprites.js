@@ -709,7 +709,7 @@ async function clampToPalette(sourceBitmap) {
  * @param {Array} rgba input color
  * @return {Array} closest match
  */
-function findNearestPaletteEntry(rgba) {
+export function findNearestPaletteEntry(rgba) {
   let minDistance = Number.POSITIVE_INFINITY;
   let bestColor = [0, 0, 0, 0];
 
