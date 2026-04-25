@@ -20,8 +20,6 @@ const soundEffects = [];
 let audioContext = null;
 let audioRunning = false;
 let playerNode = null;
-
-// eslint-disable-next-line no-unused-vars
 let soundEffectDiv = null;
 let currentFx = 0;
 let soundTable = null;
@@ -275,7 +273,6 @@ export function playSoundEffect(index) {
     playerNode.port.postMessage(soundEffects[index]);
   }
 }
-
 
 /**
  * Update all display values in page whenever underlying values have changed.

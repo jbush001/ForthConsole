@@ -49,13 +49,9 @@ let spriteContext = null;
 
 // spriteBitmap must be kept in sync with spriteData (since bitmaps
 // are immutable, we keep spriteData around to modify it).
-export const spriteData = new ImageData(SPRITE_SHEET_WIDTH,
+const spriteData = new ImageData(SPRITE_SHEET_WIDTH,
     SPRITE_SHEET_HEIGHT);
 export let spriteBitmap = null;
-
-export function setSpriteBitmap(bitmap) {
-  spriteBitmap = bitmap;
-}
 
 /**
  * Populate the spriteBitmap and spriteData from a string containing the
@@ -78,7 +74,7 @@ export function decodeSprites(text) {
   }
 
   createImageBitmap(spriteData).then((bm) => {
-    setSpriteBitmap(bm);
+    spriteBitmap = bm;
     repaintSpriteEdit(); // Sprite editor
   });
 }
@@ -140,7 +136,7 @@ export function clearSprites() {
   }
 
   createImageBitmap(spriteData).then((bm) => {
-    setSpriteBitmap(bm);
+    spriteBitmap = bm;
     repaintSpriteEdit();
   });
 }
