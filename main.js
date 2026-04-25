@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import {ForthContext} from './forth.js';
-import * as sprite from './sprites.js';
+import * as sprites from './sprites.js';
 import * as audio from './audio.js';
 import * as loadsave from './loadsave.js';
 
@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
   openTab('outputtab', document.getElementsByClassName('tablink')[0]);
 
   newProgram();
-  sprite.initSpriteEditor();
+  sprites.initSpriteEditor();
   audio.initSoundEditor();
   loadsave.updateFileList();
   audio.initAudioContext();
@@ -334,7 +334,7 @@ function newProgram() {
   ;
 `);
 
-  sprite.clearSprites();
+  sprites.clearSprites();
   audio.clearSoundEffects();
   clearScreen(0);
   resetInterpreter();
@@ -404,7 +404,7 @@ function writeConsole(text) {
  * @param {number} color Index (0-15) into the pallete for the color.
  */
 function clearScreen(color) {
-  outputContext.fillStyle = sprite.makeColorString(sprite.PALETTE[color & 15]);
+  outputContext.fillStyle = sprites.makeColorString(sprites.PALETTE[color & 15]);
   outputContext.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
 }
 
@@ -425,16 +425,16 @@ function fillRect(left, top, width, height) {
  * @param {number} color Index into palette table, 0-15
  */
 function setColor(color) {
-  const colorStr = sprite.makeColorString(sprite.PALETTE[color & 15]);
+  const colorStr = sprites.makeColorString(sprites.PALETTE[color & 15]);
   outputContext.strokeStyle = colorStr;
   outputContext.fillStyle = colorStr;
 }
 
 /**
- * Draw a sprite onto the screen. Native forth word.
+ * Draw a sprites onto the screen. Native forth word.
  * @param {number} x Horizontal offset, in pixels
  * @param {number} y Vertical offset in pixels .
- * @param {number} index Index into sprite array, in terms of 8x8 pixel blocks,
+ * @param {number} index Index into sprites array, in terms of 8x8 pixel blocks,
  *     numbered left to right, top to bottom.
  * @param {number} w Width, as a number of 8 pixel blocks.
  * @param {number} h Height, as a number of 8 pixel blocks.
@@ -442,17 +442,17 @@ function setColor(color) {
  * @param {number} flipY 1 if this should be flipped top to bottom.
  */
 function drawSprite(x, y, index, w, h, flipX, flipY) {
-  const sheetRow = Math.floor(index / sprite.SPRITE_SHEET_W_BLKS);
-  const sheetCol = index % sprite.SPRITE_SHEET_W_BLKS;
-  const pixWidth = w * sprite.SPRITE_BLOCK_SIZE;
-  const pixHeight = h * sprite.SPRITE_BLOCK_SIZE;
+  const sheetRow = Math.floor(index / sprites.SPRITE_SHEET_W_BLKS);
+  const sheetCol = index % sprites.SPRITE_SHEET_W_BLKS;
+  const pixWidth = w * sprites.SPRITE_BLOCK_SIZE;
+  const pixHeight = h * sprites.SPRITE_BLOCK_SIZE;
   const dx = flipX ? -x - pixWidth : x;
   const dy = flipY ? -y - pixWidth : y;
 
   outputContext.save();
   outputContext.scale(flipX ? -1 : 1, flipY ? -1 : 1);
-  outputContext.drawImage(sprite.spriteBitmap, sheetCol *
-    sprite.SPRITE_BLOCK_SIZE, sheetRow * sprite.SPRITE_BLOCK_SIZE,
+  outputContext.drawImage(sprites.spriteBitmap, sheetCol *
+    sprites.SPRITE_BLOCK_SIZE, sheetRow * sprites.SPRITE_BLOCK_SIZE,
     pixWidth, pixHeight, dx, dy, pixWidth, pixHeight);
 
   outputContext.restore();

@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as sprite from './sprites.js';
+import * as sprites from './sprites.js';
 import * as audio from './audio.js';
 
-// These delineate where sprite and sound data occur in the save file.
+// These delineate where sprites and sound data occur in the save file.
 const SPRITE_DELIMITER = '\n--SPRITE DATA------\n';
 const SOUND_DELIMITER = '\n--SOUND DATA--------\n';
 
@@ -74,7 +74,7 @@ export function saveToServer() {
     setSaveFileName(saveFileName + '.fth');
   }
 
-  const content = encodeSaveData(getSourceCode(), sprite.spriteData.data,
+  const content = encodeSaveData(getSourceCode(), sprites.spriteData.data,
       audio.soundEffects);
 
   fetch(`/save/${saveFileName}`, {
@@ -110,7 +110,7 @@ export function encodeSaveData(code, imageData, soundEffects) {
 }
 
 /**
- * Convert current sprite sheet to a string suitable for storing in a text
+ * Convert current sprites sheet to a string suitable for storing in a text
  * file. The format is described in decodeSprites.
  * @param {Uint8ClampedArray} imageData
  * @return {string} Hex representation of image data
@@ -123,18 +123,18 @@ export function encodeSprites(imageData) {
 
   let result = '';
   for (let i = 0; i <= dataEnd; i += 4) {
-    const index = sprite.INVERSE_PALETTE.get(imageData.slice(i, i + 4).
+    const index = sprites.INVERSE_PALETTE.get(imageData.slice(i, i + 4).
         toString());
     if (index === undefined) {
       // This shouldn't happen normally.
-      console.log('invalid color in sprite data');
+      console.log('invalid color in sprites data');
       result += '0';
     } else {
       result += index.toString(16);
     }
 
-    if (((i / 4) % sprite.SPRITE_SHEET_WIDTH) ==
-      sprite.SPRITE_SHEET_WIDTH - 1) {
+    if (((i / 4) % sprites.SPRITE_SHEET_WIDTH) ==
+      sprites.SPRITE_SHEET_WIDTH - 1) {
       result += '\n';
     }
   }
@@ -218,11 +218,11 @@ export async function loadFromServer(filename) {
 
     return response.text();
   }).then((data) => {
-    sprite.clearSprites();
+    sprites.clearSprites();
     audio.clearSoundEffects();
     const [code, spritePixels, soundEffects] = decodeSaveData(data);
     setSourceCode(code);
-    sprite.setSpriteData(spritePixels);
+    sprites.setSpriteData(spritePixels);
     audio.setAudioData(soundEffects);
     clearNeedsSave();
     updateTitleBar();
@@ -232,7 +232,7 @@ export async function loadFromServer(filename) {
 }
 
 /**
- * Parse string contents of a file containing sprite, source, and sound
+ * Parse string contents of a file containing sprites, source, and sound
  * data and populate global data structures used by the engine.
  * @param {string} data
  * @return {[code, spritPixels, soundEffects]}
@@ -242,7 +242,7 @@ export function decodeSaveData(data) {
   const split1 = data.indexOf(SPRITE_DELIMITER);
   const split2 = data.indexOf(SOUND_DELIMITER);
   if (split1 == -1 || split2 == -1) {
-    throw new Error('error loading file: missing sound/sprite data');
+    throw new Error('error loading file: missing sound/sprites data');
   }
 
   const endOfCode = data.lastIndexOf('(', split1);
@@ -302,19 +302,19 @@ function decodeSoundEffects(string) {
 
 /**
  * Populate the spriteBitmap and spriteData from a string containing the
- * sprite data (as stored in the file). Each pixel is stored as a single
+ * sprites data (as stored in the file). Each pixel is stored as a single
  * hex digit. These are references into the PALETTE table.
- * @param {string} text Hex encoded version of sprite data
+ * @param {string} text Hex encoded version of sprites data
  * @see encodeSprites
  * @return {Uint8ClampedArray} Pixel data
  */
 export function decodeSprites(text) {
-  const pixelData = new Uint8ClampedArray(sprite.SPRITE_SHEET_WIDTH *
-    sprite.SPRITE_SHEET_HEIGHT * 4);
+  const pixelData = new Uint8ClampedArray(sprites.SPRITE_SHEET_WIDTH *
+    sprites.SPRITE_SHEET_HEIGHT * 4);
   let offset = 0;
   for (let i = 0; i < text.length; i++) {
     if (!/[\s)]/.test(text[i])) {
-      const rgba = sprite.PALETTE[parseInt(text[i], 16)];
+      const rgba = sprites.PALETTE[parseInt(text[i], 16)];
       for (let i = 0; i < 4; i++) {
         pixelData[offset++] = rgba[i];
       }
