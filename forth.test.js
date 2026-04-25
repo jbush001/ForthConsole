@@ -68,6 +68,15 @@ test('maths', () => {
   expect(runCode(src)).toBe('3\n-35\n-6\n39\n20\n31\n2\n5\n12\n10\n19\n77');
 });
 
+test('shift', () => {
+  const src = `
+    345 2 lshift .
+    567 3 rshift .
+`;
+
+  expect(runCode(src)).toBe('1380\n70');
+});
+
 test('variables', () => {
   const src = `
   variable a
@@ -936,6 +945,11 @@ test('exception stack crawl', () => {
     expect(err.stackCrawl[0][3]).toBe(3);
     expect(err.stackCrawl[1][0]).toBe('bar');
     expect(err.stackCrawl[1][3]).toBe(7);
+    expect(err.toString().replace(/@\d+/g, '@X')).toBe(`stack underflow
+(Most recent call first)
+foo (testfile:3) @X
+bar (testfile:7) @X
+`);
   }
 });
 
