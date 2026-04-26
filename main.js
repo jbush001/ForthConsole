@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
   newProgram();
   sprites.initSpriteEditor();
-  audio.initSoundEditor();
+  audio.initSoundEffectEditor();
   loadsave.updateFileList();
   audio.initAudioContext();
 });

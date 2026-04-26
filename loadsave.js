@@ -157,12 +157,12 @@ function countTrailingZeros(arr) {
   return 0;
 }
 
-function encodeSoundEffects(fx) {
+function encodeSoundEffects(soundEffects) {
   // Ignore effects that are empty
   let totalEffects = 0;
-  for (let i = fx.length - 1; i >= 0; i--) {
-    if (!fx[i].amplitudes.every((value) => value === 0) ||
-      !fx[i].pitches.every((value) => value === 0)) {
+  for (let i = soundEffects.length - 1; i >= 0; i--) {
+    if (!soundEffects[i].amplitudes.every((value) => value === 0) ||
+      !soundEffects[i].pitches.every((value) => value === 0)) {
       totalEffects = i + 1;
       break;
     }
@@ -171,7 +171,7 @@ function encodeSoundEffects(fx) {
   // Encode effects that are non-zero
   let result = '';
   for (let i = 0; i < totalEffects; i++) {
-    result += encodeSoundEffect(fx[i]) + '\n';
+    result += encodeSoundEffect(soundEffects[i]) + '\n';
   }
 
   return result;
@@ -221,7 +221,7 @@ export async function loadFromServer(filename) {
     const [code, spritePixels, soundEffects] = decodeSaveData(data);
     setSourceCode(code);
     sprites.setSpriteData(spritePixels);
-    audio.setAudioData(soundEffects);
+    audio.setSoundEffectData(soundEffects);
     clearNeedsSave();
   }).catch((error) => {
     alert('Error loading file: ' + error);

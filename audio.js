@@ -27,20 +27,20 @@ let soundTable = null;
 /**
  * This is called once, when the page is first loaded.
  */
-export function initSoundEditor() {
+export function initSoundEffectEditor() {
   soundEffectDiv = document.getElementById('soundstab');
 
   document.getElementById('prevfx').addEventListener('click', () => {
     if (currentFx > 0) {
       currentFx --;
-      updateSfxTableValues();
+      updateSoundEffectTableValues();
     }
   });
 
   document.getElementById('nextfx').addEventListener('click', () => {
     if (currentFx < MAX_SOUND_EFFECTS - 1) {
       currentFx++;
-      updateSfxTableValues();
+      updateSoundEffectTableValues();
     }
   });
 
@@ -116,90 +116,13 @@ export function initSoundEditor() {
   }
 
   soundEffectDiv.appendChild(soundTable);
-  updateSfxTableValues();
-}
-
-export function setAudioData(data) {
-  soundEffects.length = 0;
-  let i = 0;
-  for (; i < data.length; i++) {
-    soundEffects.push(data[i]);
-  }
-
-  for (; i < MAX_SOUND_EFFECTS; i++) {
-    soundEffects.push({
-      noteDuration: 0,
-      waveform: 0,
-      pitches: new Uint8ClampedArray(NOTES_PER_EFFECT).fill(0),
-      amplitudes: new Uint8ClampedArray(NOTES_PER_EFFECT).fill(0),
-    });
-  }
-
-  updateSfxTableValues();
-}
-
-/**
- * Create audio context object and sound playback worklet.
- * Note that the worklet isn't started until the user attempts
- * to play a sound, both to handle browser requirements for user
- * input to play a sound, and to save CPU when a game is not running.
- */
-export function initAudioContext() {
-  audioContext = new AudioContext();
-  audioContext.audioWorklet.addModule('sound-fx-player.js', {
-    credentials: 'omit',
-  }).then(() => {
-    playerNode = new AudioWorkletNode(audioContext, 'sound-fx-player');
-    playerNode.onprocessorerror = (err) => {
-      console.log('worklet node encountered error', err);
-    };
-
-    playerNode.connect(audioContext.destination);
-  }).catch((error) => {
-    console.log('error initializing audio worklet node', error);
-  });
-}
-
-export function clearSoundEffects() {
-  soundEffects.length = 0;
-  for (let i = 0; i < MAX_SOUND_EFFECTS; i++) {
-    soundEffects.push({
-      noteDuration: 0,
-      waveform: 0,
-      pitches: new Uint8ClampedArray(NOTES_PER_EFFECT).fill(0),
-      amplitudes: new Uint8ClampedArray(NOTES_PER_EFFECT).fill(0),
-    });
-  }
-}
-
-export function suspendAudio() {
-  if (audioRunning) {
-    audioContext.suspend();
-    audioRunning = false;
-  }
-}
-
-export function playSoundEffect(index) {
-  if (!audioRunning) {
-    // The audio context requires an interaction with the page to start.
-    // Resume lazily to ensure that happens.
-    audioContext.resume();
-    audioRunning = true;
-  }
-
-  if (index >= soundEffects.length || index < 0) {
-    return;
-  }
-
-  if (playerNode) {
-    playerNode.port.postMessage(soundEffects[index]);
-  }
+  updateSoundEffectTableValues();
 }
 
 /**
  * Update all display values in page whenever underlying values have changed.
  */
-function updateSfxTableValues() {
+function updateSoundEffectTableValues() {
   if (soundEffects[currentFx]=== undefined) {
     return;
   }
@@ -234,5 +157,82 @@ function updateSfxTableValues() {
         cell.innerText = amplitudes[coli];
       }
     }
+  }
+}
+
+export function setSoundEffectData(data) {
+  soundEffects.length = 0;
+  let i = 0;
+  for (; i < data.length; i++) {
+    soundEffects.push(data[i]);
+  }
+
+  for (; i < MAX_SOUND_EFFECTS; i++) {
+    soundEffects.push({
+      noteDuration: 0,
+      waveform: 0,
+      pitches: new Uint8ClampedArray(NOTES_PER_EFFECT).fill(0),
+      amplitudes: new Uint8ClampedArray(NOTES_PER_EFFECT).fill(0),
+    });
+  }
+
+  updateSoundEffectTableValues();
+}
+
+export function clearSoundEffects() {
+  soundEffects.length = 0;
+  for (let i = 0; i < MAX_SOUND_EFFECTS; i++) {
+    soundEffects.push({
+      noteDuration: 0,
+      waveform: 0,
+      pitches: new Uint8ClampedArray(NOTES_PER_EFFECT).fill(0),
+      amplitudes: new Uint8ClampedArray(NOTES_PER_EFFECT).fill(0),
+    });
+  }
+}
+
+/**
+ * Create audio context object and sound playback worklet.
+ * Note that the worklet isn't started until the user attempts
+ * to play a sound, both to handle browser requirements for user
+ * input to play a sound, and to save CPU when a game is not running.
+ */
+export function initAudioContext() {
+  audioContext = new AudioContext();
+  audioContext.audioWorklet.addModule('sound-fx-player.js', {
+    credentials: 'omit',
+  }).then(() => {
+    playerNode = new AudioWorkletNode(audioContext, 'sound-fx-player');
+    playerNode.onprocessorerror = (err) => {
+      console.log('worklet node encountered error', err);
+    };
+
+    playerNode.connect(audioContext.destination);
+  }).catch((error) => {
+    console.log('error initializing audio worklet node', error);
+  });
+}
+
+export function suspendAudio() {
+  if (audioRunning) {
+    audioContext.suspend();
+    audioRunning = false;
+  }
+}
+
+export function playSoundEffect(index) {
+  if (!audioRunning) {
+    // The audio context requires an interaction with the page to start.
+    // Resume lazily to ensure that happens.
+    audioContext.resume();
+    audioRunning = true;
+  }
+
+  if (index >= soundEffects.length || index < 0) {
+    return;
+  }
+
+  if (playerNode) {
+    playerNode.port.postMessage(soundEffects[index]);
   }
 }
