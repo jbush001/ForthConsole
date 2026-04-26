@@ -717,9 +717,9 @@ export class ForthContext {
    * execute it immediately when it reads it rather than compiling it.
    */
   _immediate() {
-    if (this.currentWord) {
-      this.currentWord.immediate = true;
-    }
+    // Note that this.currentWord can only be null if 'immediate'
+    // is the first word in BASE_WORDS.
+    this.currentWord.immediate = true;
   }
 
   _branchIfZero() {

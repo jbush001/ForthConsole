@@ -440,17 +440,24 @@ test('byte fetch out of range 2', () => {
 // This is a little tricky, because we need to cross the stack boundary
 // without triggering a stack overflow.
 test('out of memory 1', () => {
-  const t = () => {
+  // Note: manually catch here (instead of calling expect().toThrow()) so we
+  // exercise the toString method without a stack crawl.
+  try {
     runCode('0 0 0 0 0 0 0 0 0 0 0 16380 here ! , , , , , , , , ');
-  };
-  expect(t).toThrow('out of memory');
+    fail('did not throw OOM exception');
+  } catch (e) {
+    expect(e.toString()).toBe('out of memory');
+  }
 });
 
 test('out of memory 2', () => {
-  const t = () => {
+  // As above, manually catching here to exercise toString
+  try {
     runCode('16380 here ! s" This string will go past the end of memory"');
-  };
-  expect(t).toThrow('out of memory');
+    fail('did not throw OOM exception');
+  } catch (e) {
+    expect(e.toString()).toBe('out of memory');
+  }
 });
 
 test('invoke native underflow', () => {
@@ -937,7 +944,7 @@ test('exception stack crawl', () => {
       ;
 
       bar`);
-    expect(false).toBe(true); // Should not reach this.
+    fail('exception not thrown');
   } catch (err) {
     expect(err.name).toBe('ForthRuntimeError');
     expect(err.stackCrawl.length).toBe(2);
@@ -961,10 +968,16 @@ test('compile error line info', () => {
       baz
       2 dup drop drop
     `);
-    expect(false).toBe(true); // Should not reach this.
+    fail('exception not thrown');
   } catch (err) {
     expect(err.name).toBe('ForthCompileError');
     expect(err.fileName).toBe(DEBUG_SRC_NAME);
     expect(err.lineNum).toBe(4);
   }
+});
+
+test('unicode comment', () => {
+  // The 'key' builtin checks if this is a unicode character and will
+  // return -1 if so.
+  runCode('( \u1F600  foo )');
 });
