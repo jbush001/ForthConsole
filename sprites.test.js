@@ -12,13 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as sprite from './sprites.js';
+import * as sprites from './sprites.js';
 
 test('color conversion', () => {
-  const value = sprite.PALETTE[3];
+  const value = sprites.PALETTE[3];
   const value2 = [...value];
   value2[0] = 1;
 
-  expect(sprite.findNearestPaletteEntry(value)).toStrictEqual(value);
-  expect(sprite.findNearestPaletteEntry(value2)).toStrictEqual(value);
+  expect(sprites.findNearestPaletteEntry(value)).toStrictEqual(value);
+  expect(sprites.findNearestPaletteEntry(value2)).toStrictEqual(value);
+});
+
+test('undo buffer', () => {
+  const buf = new sprites.UndoBuffer();
+  expect(buf.redo()).toBe(null);
+  expect(buf.undo()).toBe(null);
+
+  buf.do('a');
+  buf.do('b');
+  buf.do('c');
+
+  expect(buf.redo()).toBe(null);
+
+  expect(buf.undo()).toBe('c');
+  expect(buf.undo()).toBe('b');
+  expect(buf.undo()).toBe('a');
+  expect(buf.undo()).toBe(null);
+
+  expect(buf.redo()).toBe('a');
+  expect(buf.redo()).toBe('b');
+
+  buf.do('d');
+  expect(buf.redo()).toBe(null);
+  expect(buf.undo()).toBe('d');
+  expect(buf.undo()).toBe('b');
 });

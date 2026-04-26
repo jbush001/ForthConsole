@@ -212,7 +212,7 @@ function handleMouseMoved(event) {
 
 let checkerPattern = null;
 
-class UndoBuffer {
+export class UndoBuffer {
   constructor() {
     this.actions = [];
     this.undoIndex = 0;
