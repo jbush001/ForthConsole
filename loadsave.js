@@ -218,14 +218,11 @@ export async function loadFromServer(filename) {
 
     return response.text();
   }).then((data) => {
-    sprites.clearSprites();
-    audio.clearSoundEffects();
     const [code, spritePixels, soundEffects] = decodeSaveData(data);
     setSourceCode(code);
     sprites.setSpriteData(spritePixels);
     audio.setAudioData(soundEffects);
     clearNeedsSave();
-    updateTitleBar();
   }).catch((error) => {
     alert('Error loading file: ' + error);
   });

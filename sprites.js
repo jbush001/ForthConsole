@@ -58,7 +58,8 @@ export let spriteBitmap = null;
  */
 export function setSpriteData(rawPixels) {
   // Copy into our ImageData object first.
-  for (let i = 0; i < spriteData.data.length; i += 4) {
+  let i = 0;
+  for (; i < rawPixels.length; i += 4) {
     const rgba = rawPixels.slice(i, i + 4);
     if (!INVERSE_PALETTE.has(rgba.toString())) {
       const newRgba = findNearestPaletteEntry(rgba);
@@ -72,6 +73,11 @@ export function setSpriteData(rawPixels) {
       spriteData.data[i + 2] = rgba[2];
       spriteData.data[i + 3] = rgba[3];
     }
+  }
+
+  // Clear the remaining unused area if any.
+  for (; i < spriteData.data.length; i++) {
+    spriteData.data[i] = 0;
   }
 
   createImageBitmap(spriteData).then((bm) => {
@@ -146,7 +152,7 @@ function repaint() {
 /**
  * Schedule a repaint in the event loop.
  */
-export function repaintSpriteEdit() {
+function repaintSpriteEdit() {
   setTimeout(repaint, 0);
 }
 

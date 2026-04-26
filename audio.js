@@ -124,8 +124,19 @@ export function initSoundEditor() {
 }
 
 export function setAudioData(data) {
-  for (let i = 0; i < data.length; i++) {
-    soundEffects[i] = data[i];
+  soundEffects.length = 0;
+  let i = 0;
+  for (; i < data.length; i++) {
+    soundEffects.push(data[i]);
+  }
+
+  for (; i < MAX_SOUND_EFFECTS; i++) {
+    soundEffects.push({
+      noteDuration: 0,
+      waveform: 0,
+      pitches: new Uint8ClampedArray(NOTES_PER_EFFECT).fill(0),
+      amplitudes: new Uint8ClampedArray(NOTES_PER_EFFECT).fill(0),
+    });
   }
 
   updateSfxTableValues();
