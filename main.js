@@ -126,7 +126,7 @@ function handlePageKeyDown(event) {
   }
 
   // Save keyboard shortcut
-  if ((event.altKey || event.ctrlKey) && event.key === 's') {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
     event.preventDefault();
     loadsave.saveToServer();
   }
