@@ -77,9 +77,7 @@ export function initSoundEditor() {
 
   // Create a table of volumes and pitches.
   soundTable = document.createElement('table');
-  soundTable.style.border = '1px solid black';
-  soundTable.style.borderCollapse = 'collapse';
-  soundTable.style.margin = '5px';
+  soundTable.classList.add('note-table');
   for (let i = 0; i < 2; i++) {
     const row = document.createElement('tr');
     const rowHeader = document.createElement('th');
@@ -88,9 +86,7 @@ export function initSoundEditor() {
 
     for (let j = 0; j < NOTES_PER_EFFECT; j++) {
       const cell = document.createElement('td');
-      cell.style.border = '1px solid black';
       cell.contentEditable = 'true';
-      cell.style.width = '30px';
       cell.addEventListener('blur', () => {
         const value = Math.min(Math.max(parseInt(cell.innerText), 0), 255);
         cell.innerText = value;

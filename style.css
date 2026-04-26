@@ -118,3 +118,14 @@ body, html {
 #sprite_edit {
     image-rendering: pixelated;
 }
+
+.note-table {
+    border: 1px solid black;
+    border-collapse: collapse;
+    margin: 5px;
+}
+
+.note-table td {
+    border: 1px solid black;
+    width: 30px;
+}
