@@ -16,18 +16,24 @@
 // This was heavily inspired by the excellent jonesforth tutorial by
 // Richard W.M. Jones: <http://git.annexia.org/?p=jonesforth.git;a=tree>
 
-const MEMORY_CELLS = 16384;
-
-// Number of bytes in the default machine integer data type (we'd normally
-// call this the machine 'word', but that name has a specific meaning in
-// FORTH, so we use the term 'cell' instead).
+// Number of bytes in the default machine integer data type (in many other
+// languages, we would call this the machine 'word', but that term has a
+// specific meaning in FORTH, so we use 'cell' instead).
 const CELL_SIZE = 4;
 
+// Size of memory in cells
+const MEMORY_CELLS = 16384;
+
+// Byte address of three built-in variables.
 const HERE_PTR = 0;
 const BASE_PTR = 4;
 const STATE_PTR = 8;
 
-// The interpreter executes this when it resets to define common words.
+// A large chunk of the FORTH interpreter is implemented in FORTH, which
+// is one of the cool things about FORTH. The interpreter executes this
+// when it starts to define common words and bootstrap itself. You can
+// see as this progresses, it uses more and more of the words that it is
+// defining.
 const BASE_WORDS = `
 
 ${HERE_PTR} constant here
@@ -279,6 +285,7 @@ class ForthRuntimeError extends ForthError {
   }
 }
 
+// An entry in the dictionary; a callable function.
 class Word {
   constructor(value, immediate=false, literal=false) {
     this.immediate = immediate;
@@ -341,12 +348,21 @@ export class ForthContext {
   constructor() {
     this.returnStack = [];
 
-    // The intepreter stores memory as an array of 32-bit cells
+    // The intepreter stores memory as an array of cells, which can contain
+    // either a 32-bit integer or a reference to a native javascript
+    // function. The data stack is also contained within here.
     this.memory = Array(Math.floor(MEMORY_CELLS / CELL_SIZE)).fill(0);
-    this.stackPointer = MEMORY_CELLS - CELL_SIZE;
-    this.here = CELL_SIZE * 3; // Account for built-in vars: here, state, base.
+    this.stackPointer = MEMORY_CELLS - CELL_SIZE; // This is a byte address.
+
+    // 'here' is a built-in variable that tracks where the next compiled code
+    // will be emitted. The first 3 cells in memory contain built-in vars:
+    // here, state, base. Increment this by three to account for that.
+    this.here = CELL_SIZE * 3;
     this.base = 10;
     this.state = STATE_INTERP;
+
+    // Initialize the primitive built-in words that form the foundation for our
+    // interpreter.
     this.dictionary = {
       // Control flow/dictionary operations
       'create': new Word(this._create),
@@ -410,7 +426,7 @@ export class ForthContext {
    * Read a cell of memory. This will silently align the pointer and will throw
    * an exception for invalid addresses.
    * @param {number} addr
-   * @return {number} memory value at address
+   * @return {number|function} memory value at address
    * @throws {ForthRuntimeError}
    */
   _fetchCell(addr) {
@@ -425,7 +441,7 @@ export class ForthContext {
   /**
    * Write value to a memory cell.
    * @param {number} addr
-   * @param {number} value
+   * @param {number|function} value
    * @throws {ForthRuntimeError}
    */
   _storeCell(addr, value) {
@@ -567,8 +583,8 @@ export class ForthContext {
   }
 
   /**
-   * During compilation, write a word at 'here' (next code address) and
-   * increment here by one word.
+   * During compilation, write a value at 'here' (next code address) and
+   * increment here by one cell.
    * @param {number} value
    * @throws {ForthRuntimeError}
    */
@@ -896,7 +912,7 @@ export class ForthContext {
   }
 
   /**
-   * Read a word from memory and push onto the stack
+   * Read a cell from memory and push onto the stack
    */
   _fetch() {
     this._push(this._fetchCell(this._pop()));
@@ -992,10 +1008,11 @@ export class ForthContext {
     }
 
     const length = curAddr - (startAddr + CELL_SIZE * 2);
+
+    // Align to next cell boundary
     curAddr = (curAddr + CELL_SIZE - 1) & ~(CELL_SIZE - 1);
     this._storeCell(startAddr + CELL_SIZE, curAddr); // Patch branch address
 
-    // Align to next word boundary
     this.here = curAddr;
 
     // Push start address and length on the stack
@@ -1082,7 +1099,7 @@ export class ForthContext {
 
   /**
    * Run compiled code. This implements the "inner interpreter." It
-   * uses an indirect threaded interpreter. Each word in the program
+   * uses an indirect threaded interpreter. Each cell in the program
    * consists of either javascript function references (for built-in words)
    * or an integer number that is a call address for a user defined word.
    * @param {number} startAddress Address in FORTH address space to begin
