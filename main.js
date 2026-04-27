@@ -40,6 +40,7 @@ fontBitmap.src = 'font8x8.png';
 
 let outputCanvas = null;
 let outputContext = null;
+let currentFocusTab = null;
 
 // Tracks which buttons are currently held.
 let buttonMask = 0;
@@ -116,7 +117,10 @@ function handleSourceKeyDown(event) {
 }
 
 function handlePageKeyDown(event) {
-  if (event.key in BUTTON_MAP) {
+  // Intercept keys only if this is running. We don't want to steal key
+  // events from the source code tab or the REPL input, but the game
+  // will necessarily be paused when either of those is in focus.
+  if (running && (event.key in BUTTON_MAP)) {
     buttonMask |= BUTTON_MAP[event.key];
     event.preventDefault();
   }
@@ -553,6 +557,12 @@ function updateControls() {
 }
 
 function openTab(pageName, element) {
+  if (currentFocusTab == 'outputtab') {
+    stopRun(); // Pause if the user is playing the game.
+  }
+
+  currentFocusTab = pageName;
+
   for (const tab of document.getElementsByClassName('tabcontent')) {
     tab.style.display = 'none';
   }
