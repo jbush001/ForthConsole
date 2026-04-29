@@ -22,15 +22,33 @@
 // waveform.
 //
 
-function square(time) {
-  return time > 0.5 ? 1 : 0;
+function square(time, outputBuf, offset, length, amplitude, dT) {
+  for (let i = 0; i < length; i++) {
+    outputBuf[i + offset] = (time > 0.5 ? 1 : -1) * amplitude;
+    time += dT;
+    if (time >= 1.0) time -= 1.0;
+  }
+
+  return time;
 }
 
-function triangle(time) {
-  return 4 * Math.abs(time - 0.5) - 1;
+function triangle(time, outputBuf, offset, length, amplitude, dT) {
+  for (let i = 0; i < length; i++) {
+    outputBuf[i + offset] = (4 * Math.abs(time - 0.5) - 1) * amplitude;
+    time += dT;
+    if (time >= 1.0) time -= 1.0;
+  }
+
+  return time;
 }
 
-function saw(time) {
+function saw(time, outputBuf, offset, length, amplitude, dT) {
+  for (let i = 0; i < length; i++) {
+    outputBuf[i + offset] = time;
+    time += dT;
+    if (time >= 1.0) time -= 1.0;
+  }
+
   return time;
 }
 
@@ -40,45 +58,63 @@ class SoundEffectsPlayer extends AudioWorkletProcessor {
     this.port.onmessage = this.handleMessage.bind(this);
 
     this.time = 0.0;
-    this.deltaTime = 0;
     this.pitches = null;
     this.amplitudes = null;
     this.effectIndex = 0;
     this.samplesPerNote = 0;
-    this.sampleCount = 0;
+    this.sampleCount = 0; // samples played for the current note
     this.wavefn = square;
+    this.dT = 0;
   }
 
   // @bug: This has popping and crackling because of abrupt transitions
   // at the beginning and end of playback.
   process(inputs, outputs, parameters) {
     const outputBuf = outputs[0][0];
-    if (this.pitches === null || this.effectIndex == this.pitches.length) {
+    if (this.pitches === null) {
       return true;
     }
 
-    for (let i = 0; i < outputBuf.length; i++) {
-      outputBuf[i] = this.wavefn(this.time) * this.amplitude;
-      this.time = (this.time + this.deltaTime) % 1.0;
+    let amplitude = 0;
+    let dT = 0;
 
-      if (++this.sampleCount == this.samplesPerNote) {
-        this.sampleCount = 0;
-        if (++this.effectIndex == this.pitches.length) {
-          break;
-        } else {
-          this.setNote(this.pitches[this.effectIndex],
-              this.amplitudes[this.effectIndex]);
-        }
+    function getNoteParams(player) {
+      if (player.effectIndex < player.pitches.length) {
+        amplitude = player.amplitudes[player.effectIndex] / 255;
+        const frequency = 27.5 * 2 **
+          (Math.floor(player.pitches[player.effectIndex]) / 12);
+        dT = frequency / sampleRate;
+      } else {
+        amplitude = 0;
       }
     }
 
-    return true;
-  }
+    getNoteParams(this);
 
-  setNote(pitch, amplitude) {
-    const frequency = 27.5 * 2 ** (Math.floor(pitch) / 12);
-    this.deltaTime = frequency / sampleRate;
-    this.amplitude = amplitude / 255;
+    let index = 0;
+    while (index < outputBuf.length && this.effectIndex < this.pitches.length) {
+      const sliceLength = Math.min(outputBuf.length - index,
+          this.samplesPerNote - this.sampleCount);
+      this.time = this.wavefn(this.time, outputBuf, index, sliceLength,
+          amplitude, dT);
+
+      index += sliceLength;
+      this.sampleCount += sliceLength;
+
+      // XXX note: this does not respect for zero crossings, so there will
+      // be some noise on note changes.
+      if (this.sampleCount == this.samplesPerNote) {
+        this.sampleCount = 0;
+        this.effectIndex++;
+        getNoteParams(this);
+      }
+    }
+
+    while (index < outputBuf.length) {
+      outputBuf[index++] = 0;
+    }
+
+    return true;
   }
 
   handleMessage(event) {
@@ -102,7 +138,6 @@ class SoundEffectsPlayer extends AudioWorkletProcessor {
         break;
     }
 
-    this.setNote(this.pitches[0], this.amplitudes[0]);
     this.effectIndex = 0;
     this.sampleCount = 0;
     this.time = 0; // Avoid a pop at the beginning.
