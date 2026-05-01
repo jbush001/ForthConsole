@@ -58,6 +58,12 @@ function saw(time, outputBuf, offset, length, amplitude, dT) {
   return time;
 }
 
+function clearBuffer(outputBuf, offset, length) {
+  for (let i = 0; i < length; i++) {
+    outputBuf[i + offset] = 0;
+  }
+}
+
 class SoundEffectsPlayer extends AudioWorkletProcessor {
   constructor(options) {
     super();
@@ -97,8 +103,12 @@ class SoundEffectsPlayer extends AudioWorkletProcessor {
     while (index < outputBuf.length && this.effectIndex < this.pitches.length) {
       const sliceLength = Math.min(outputBuf.length - index,
           this.samplesPerNote - this.sampleCount);
-      this.time = this.wavefn(this.time, outputBuf, index, sliceLength,
-          this.amplitude, this.dT);
+      if (this.amplitude == 0) {
+        clearBuffer(outputBuf, index, sliceLength);
+      } else {
+        this.time = this.wavefn(this.time, outputBuf, index, sliceLength,
+            this.amplitude, this.dT);
+      }
 
       index += sliceLength;
       this.sampleCount += sliceLength;
@@ -112,8 +122,8 @@ class SoundEffectsPlayer extends AudioWorkletProcessor {
       }
     }
 
-    while (index < outputBuf.length) {
-      outputBuf[index++] = 0;
+    if (index < outputBuf.length) {
+      clearBuffer(index, outputBuf.length - index);
     }
 
     return true;
