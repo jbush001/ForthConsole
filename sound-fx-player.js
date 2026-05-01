@@ -58,12 +58,6 @@ function saw(time, outputBuf, offset, length, amplitude, dT) {
   return time;
 }
 
-function clearBuffer(outputBuf, offset, length) {
-  for (let i = 0; i < length; i++) {
-    outputBuf[i + offset] = 0;
-  }
-}
-
 class SoundEffectsPlayer extends AudioWorkletProcessor {
   constructor(options) {
     super();
@@ -91,6 +85,9 @@ class SoundEffectsPlayer extends AudioWorkletProcessor {
     }
   }
 
+  // Note: "Each of the output channels is filled with zeros by default —
+  // the processor will output silence unless the output arrays are modified."
+  // https://developer.mozilla.org/en-US/docs/Web/API/AudioWorkletProcessor/process
   // @bug: This has popping and crackling because of abrupt transitions
   // at the beginning and end of playback.
   process(inputs, outputs, parameters) {
@@ -103,9 +100,7 @@ class SoundEffectsPlayer extends AudioWorkletProcessor {
     while (index < outputBuf.length && this.effectIndex < this.pitches.length) {
       const sliceLength = Math.min(outputBuf.length - index,
           this.samplesPerNote - this.sampleCount);
-      if (this.amplitude == 0) {
-        clearBuffer(outputBuf, index, sliceLength);
-      } else {
+      if (this.amplitude > 0) {
         this.time = this.wavefn(this.time, outputBuf, index, sliceLength,
             this.amplitude, this.dT);
       }
@@ -120,10 +115,6 @@ class SoundEffectsPlayer extends AudioWorkletProcessor {
         this.effectIndex++;
         this.updateNoteParams();
       }
-    }
-
-    if (index < outputBuf.length) {
-      clearBuffer(index, outputBuf.length - index);
     }
 
     return true;
