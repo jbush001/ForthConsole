@@ -13,8 +13,13 @@
 // limitations under the License.
 
 // Core FORTH interpreter
-// This was heavily inspired by the excellent jonesforth tutorial by
-// Richard W.M. Jones: <http://git.annexia.org/?p=jonesforth.git;a=tree>
+// This was inspired by the excellent jonesforth tutorial by Richard
+// W.M. Jones: <http://git.annexia.org/?p=jonesforth.git;a=tree>
+// That implementation used a direct threaded interpreter written in x86
+// assembly, which is not applicable in Javascript. Instead I rely on
+// dynamic typing, with instruction array slots containing either a closure
+// for native words, or an array offset for user defined words.
+//
 
 // Number of bytes in the default machine integer data type (in many other
 // languages, we would call this the machine 'word', but that term has a

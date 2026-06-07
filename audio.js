@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// This module implements both audio playback and the audio editor page.
+
 import * as loadsave from './loadsave.js';
 
 const MAX_SOUND_EFFECTS = 32;

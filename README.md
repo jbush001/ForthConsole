@@ -1,10 +1,16 @@
 [![CI Status](https://github.com/jbush001/fconsole/actions/workflows/node.js.yml/badge.svg)](https://github.com/jbush001/fconsole/actions/workflows/node.js.yml)
 
-FORTH is one of these languages (like Lisp) that goes to an extreme with minimalism
-and has a base of users who swear by it. While I appreciate its interesting
-aspects, I've never really fully understood its appeal. I've been having fun recently
-making small games in PICO-8, and I thought an interesting way to understand FORTH better
-would be to create a quick and dirty fantasy console based on it.
+FORTH is a minimalist language with a fervent cult following.
+While I appreciate its elegant aspects, whatever it is that enamors people so
+with it much has never really clicked with me.
+
+I've been having fun recently making small games in PICO-8, and, in hopes of
+achieving enlightenment, I made a create a quick and dirty fantasy console
+based on it.
+
+It still makes my brain hurt.
+
+There are a number of games that can be selected from the drop down menu.
 
 Live version here: <https://jbush001.github.io/ForthConsole>
 

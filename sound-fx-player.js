@@ -15,9 +15,10 @@
 // limitations under the License.
 
 //
-// This module implements background thread that plays sound effects. The main
-// game thread sends messages to this thread to kick off playback.
-// Each sound effect consists of a series of frequencies (each being a byte that
+// This module implements background thread that generates the raw audio
+// samples for sound effects (in a Javascript worklet). The main game
+// thread sends messages to this thread to kick off playback. Each sound
+// effect consists of a sequence of frequencies (each being a byte that
 // indicates a piano note), amplitudes, as well as an overall speed and
 // waveform.
 //
